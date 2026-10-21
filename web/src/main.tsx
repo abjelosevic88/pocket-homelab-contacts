@@ -3,13 +3,13 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './styles/base.css'
 import './styles/app.css'
-import './styles/calendar.css'
+import './styles/contacts.css'
 import './styles/settings.css'
 import { AppProvider, useApp } from './lib/app-context'
 import { Loading, ToastProvider } from './components/ui'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import Login from './pages/Login'
-import CalendarPage from './pages/CalendarPage'
+import ContactsApp from './pages/ContactsApp'
 import Settings from './pages/Settings'
 
 function Gate({ children }: { children: React.ReactNode }) {
@@ -28,9 +28,7 @@ function App() {
       <Route path="/login" element={<Login mode="login" />} />
       <Route path="/setup" element={<Login mode="setup" />} />
       <Route path="/settings/:tab?" element={<Gate><ErrorBoundary where="settings"><Settings /></ErrorBoundary></Gate>} />
-      <Route path="/event/:id" element={<Gate><ErrorBoundary where="calendar"><CalendarPage /></ErrorBoundary></Gate>} />
-      <Route path="/:view?/:date?" element={<Gate><ErrorBoundary where="calendar"><CalendarPage /></ErrorBoundary></Gate>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Gate><ErrorBoundary where="contacts"><ContactsApp /></ErrorBoundary></Gate>} />
     </Routes>
   )
 }

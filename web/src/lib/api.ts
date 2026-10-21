@@ -18,7 +18,7 @@ async function request<T>(method: string, url: string, body?: unknown, raw = fal
   }
   const res = await fetch(url, init)
   if (res.status === 401 && !url.includes('/auth/')) {
-    window.dispatchEvent(new CustomEvent('pcal:unauthorized'))
+    window.dispatchEvent(new CustomEvent('pcon:unauthorized'))
   }
   if (!res.ok) {
     let msg = res.statusText
@@ -39,17 +39,19 @@ export const api = {
   getText: (url: string) => request<string>('GET', url, undefined, true),
   post: <T>(url: string, body?: unknown) => request<T>('POST', url, body),
   put: <T>(url: string, body?: unknown) => request<T>('PUT', url, body),
+  patch: <T>(url: string, body?: unknown) => request<T>('PATCH', url, body),
   del: <T>(url: string) => request<T>('DELETE', url),
 }
 
 export const V1 = '/api/v1'
 
-/** POST files as multipart/form-data. */
-export async function upload<T>(url: string, field: string, files: File | File[], extra: Record<string, string> = {}): Promise<T> {
+/** Send files as multipart/form-data. */
+export async function upload<T>(url: string, field: string, files: File | File[], extra: Record<string, string> = {}, method = 'POST'): Promise<T> {
   const fd = new FormData()
   for (const f of Array.isArray(files) ? files : [files]) fd.append(field, f, f.name)
   for (const [k, v] of Object.entries(extra)) fd.append(k, v)
-  const res = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Pocket-Source': 'web' } })
+  const res = await fetch(url, { method, body: fd, credentials: 'same-origin', headers: { 'X-Pocket-Source': 'web' } })
+  if (res.status === 401) window.dispatchEvent(new CustomEvent('pcon:unauthorized'))
   const j = await res.json().catch(() => ({}))
   if (!res.ok) throw new ApiError(res.status, j.error || res.statusText, j)
   return j as T

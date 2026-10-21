@@ -21,247 +21,204 @@ export interface AuthStatus {
   oidc_name?: string
 }
 
-export type ViewName = 'day' | '3day' | 'week' | 'month' | 'year' | 'agenda' | 'people'
+export type NotifyKind = 'apprise' | 'ntfy' | 'webhook'
+export type Mode = 'core' | 'direct' | 'off'
 
 export interface Settings {
   title: string
-  timezone: string
-  week_start: number
-  time_format: '24h' | '12h'
-  default_view: ViewName
-  default_calendar_id: number
-  default_duration_min: number
-  default_alarms: string[]
-  all_day_alarms: string[]
-  work_start: number
-  work_end: number
-  work_days: number[]
-  show_week_numbers: boolean
-  show_declined: boolean
-  show_weekends: boolean
+  sort_by: 'given' | 'family'
+  display_order: 'given_first' | 'family_first'
+  default_addressbook_id: number
   density: 'comfortable' | 'compact'
-  holiday_country: string
-  freebusy_shared: boolean
-  invites_color: string
-  notify_kind: 'apprise' | 'ntfy' | 'webhook'
+  phone_region: string
+  notify_kind: NotifyKind
   notify_url: string
-  notify_alarms: boolean
-  notify_invites: boolean
-  digest_time: string
-  overlays: Record<string, string>
-  overlay_colors: Record<string, string>
-  overlay_urls: Record<string, string>
-  overlay_tokens: Record<string, boolean>
+  birthday_notify: boolean
+  birthday_ahead: number
+  birthday_time: string
+  anniversary_note: boolean
+  integrations: Record<string, string> | null
+  integration_urls: Record<string, string> | null
+  integration_tokens: Record<string, boolean> | null
 }
 
 export interface CoreStatus { configured: boolean; url: string; registered: boolean; error: string }
 
 export interface SettingsResponse {
   settings: Settings
-  effective_tz: string
-  box_tz: string
-  box_holidays: string
+  box_tz?: string
   notify_has_token: boolean
   notify_box_route: boolean
-  google_configured: boolean
   core: CoreStatus
 }
 
 export interface Person { id: number; name: string; email: string }
 
+export type Role = 'owner' | 'manage' | 'write' | 'read'
+export type ShareRole = 'read' | 'write' | 'manage'
+
 export interface Share {
   id: number
-  calendar_id: number
+  addressbook_id: number
   user_id: number | null
   email?: string
   everyone: boolean
-  role: Role
-  person?: Person
+  role: ShareRole
+  person?: Person | null
   pending: boolean
+}
+
+export interface AddressBook {
+  id: number
+  owner_id: number
+  uid: string
+  name: string
+  color: string
+  description: string
+  kind: 'local' | 'carddav' | 'nextcloud' | string
+  account_id: number | null
+  read_only: boolean
+  is_default: boolean
+  sort_order: number
+  role: Role
+  visible: boolean
+  owner?: Person
+  contacts: number
+  shares?: Share[] | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Summary {
+  id: number
+  addressbook_id: number
+  uid: string
+  kind: 'individual' | 'org' | 'group'
+  fn: string
+  given: string
+  family: string
+  nickname: string
+  org: string
+  title: string
+  emails: string[] | null
+  phones: string[] | null
+  birthday: string
+  categories: string[] | null
+  has_photo: boolean
+  photo_url: string
+  starred: boolean
+  initials: string
+  color: string
+  updated_at: string
+}
+
+export interface CardField { label: string; value: string; pref?: boolean }
+export interface CardAddress { label: string; street: string; ext?: string; pobox?: string; city: string; region: string; postcode: string; country: string; pref?: boolean }
+
+export interface Card {
+  kind: 'individual' | 'org' | 'group'
+  fn: string
+  prefix: string
+  given: string
+  middle: string
+  family: string
+  suffix: string
+  nickname: string
+  phonetic_given: string
+  phonetic_family: string
+  org: string
+  department: string
+  title: string
+  emails: CardField[] | null
+  phones: CardField[] | null
+  addresses: CardAddress[] | null
+  urls: CardField[] | null
+  ims: CardField[] | null
+  socials: CardField[] | null
+  birthday: string
+  anniversary: string
+  dates: CardField[] | null
+  related: CardField[] | null
+  note: string
+  categories: string[] | null
+  members?: string[] | null
+}
+
+export interface Contact extends Summary {
+  card: Card
+  etag: string
+  role: Role
+  addressbook: { id: number; name: string; color: string; owner?: Person }
+  source: string
+  groups?: { uid: string; name: string }[] | null
+  url: string
   created_at: string
 }
 
-export type Role = 'owner' | 'manage' | 'write' | 'read' | 'freebusy'
+export interface ContactList { contacts: Summary[] | null; total: number }
 
-export interface Calendar {
-  id: number
-  uid: string
-  name: string
-  color: string
-  calendar_color: string
-  description: string
-  timezone: string
-  kind: 'local' | 'caldav' | 'google' | 'ics' | 'nextcloud'
-  account_id: number | null
-  read_only: boolean
-  writable: boolean
-  is_default: boolean
-  default_alarms: string[]
-  role: Role
-  visible: boolean
-  notify: boolean
-  owner: Person
-  events: number
-  sort_order: number
-  feed_url?: string
-  caldav_url?: string
-  shares?: Share[]
+export interface RelatedEvent { id: string; title: string; start: string; end?: string; all_day: boolean; url: string; past: boolean }
+export interface RelatedNote { id: string; title: string; snippet?: string; updated_at?: string; url: string }
+export interface RelatedTask { id: string; title: string; due?: string; done: boolean; url: string }
+export interface RelatedSection<T> { status: 'ok' | 'off' | 'error'; detail: string; app_url?: string; new_url?: string; items: T[] | null }
+export interface Related {
+  calendar?: RelatedSection<RelatedEvent>
+  notes?: RelatedSection<RelatedNote>
+  tasks?: RelatedSection<RelatedTask>
 }
 
-export interface Alarm { trigger: string; description?: string }
+export interface Activity { id: number; addressbook_id: number | null; contact_id: number | null; action: string; summary: string; detail: string; created_at: string }
 
-export type PartStat = 'ACCEPTED' | 'DECLINED' | 'TENTATIVE' | 'NEEDS-ACTION' | 'DELEGATED'
+export interface Label { name: string; count: number }
+export interface Group { uid: string; name: string; count: number; addressbook_id: number }
+export interface Categories { labels: Label[] | null; groups: Group[] | null }
 
-export interface Attendee {
-  email: string
-  name?: string
-  role?: string
-  status?: PartStat
-  user_id?: number
-  me?: boolean
-}
+export interface Birthday { contact: Summary; kind: 'birthday' | 'anniversary'; date: string; original: string; age: number | null; days: number }
 
-export interface Occurrence {
-  id: string
-  event_id: number
-  key: string
-  uid: string
-  calendar_id: number
-  title: string
-  description?: string
-  location?: string
-  url?: string
-  conference?: string
-  start: string
-  end: string
-  all_day: boolean
-  tz?: string
-  status: 'confirmed' | 'tentative' | 'cancelled'
-  busy: boolean
-  private: boolean
-  color?: string
-  categories: string[]
-  recurring: boolean
-  rrule?: string
-  repeat_text?: string
-  override: boolean
-  alarms: Alarm[]
-  organizer?: { email: string; name?: string }
-  attendees: Attendee[]
-  invite?: { status: PartStat }
-  can_edit: boolean
-  masked: boolean
-  source?: string
-  created_by?: Person
-  updated_at?: string
-  etag?: string
-}
+export interface DuplicateGroup { key: string; reason: string; contacts: Summary[] }
 
-export interface EventsResponse { events: Occurrence[]; from: string; to: string; tz: string }
+export interface Deleted { id: number; addressbook_id: number; uid: string; fn: string; deleted_at: string }
 
-export interface EventDetail { event: Occurrence; role: Role | ''; calendar?: { id: number; name: string; color: string; owner: Person } }
+export interface ImportPreviewRow { fn: string; emails: string[] | null; phones: string[] | null; action: 'create' | 'merge' | 'skip'; match_id: number | null }
+export interface ImportResult { total: number; created: number; merged: number; skipped: number; failed: number; errors: string[] | null; preview?: ImportPreviewRow[] | null }
 
-export interface EventBody {
-  calendar_id?: number
-  title?: string
-  description?: string
-  location?: string
-  url?: string
-  conference?: string
-  all_day?: boolean
-  start?: string
-  end?: string
-  tz?: string
-  rrule?: string
-  status?: string
-  busy?: boolean
-  private?: boolean
-  color?: string
-  categories?: string[]
-  alarms?: Alarm[]
-  attendees?: Attendee[]
-}
+export interface APIToken { id: number; name: string; prefix: string; last_used_at: string | null; created_at: string }
 
-export type Scope = 'this' | 'following' | 'all'
-
-export type OverlayKind = 'task' | 'due' | 'done' | 'trip' | 'service' | 'invoice' | 'habit' | 'review' | 'holiday'
-
-export interface OverlayItem {
-  id: string
-  source: string
-  ref: string
-  kind: OverlayKind
-  title: string
-  subtitle?: string
-  start: string
-  end: string
-  all_day: boolean
-  color: string
-  url?: string
-  done: boolean
-  overdue?: boolean
-  actions: string[]
-  meta?: Record<string, unknown>
-}
-
-export interface OverlaysResponse { items: OverlayItem[]; errors: Record<string, string> }
-
-export interface OverlaySource {
-  id: string
-  name: string
-  app: string
-  description: string
-  mode: 'core' | 'direct' | 'off'
-  status: 'ok' | 'error' | 'off'
-  detail: string
-  color: string
-  default_color: string
-  url: string
-  has_token: boolean
-  pocket: boolean
-  actions: string[] | null
-}
-
-export interface PeopleEntry { id: number; name: string; email: string; me: boolean; freebusy: boolean }
-
-export interface BusyBlock { start: string; end: string; all_day: boolean }
-
-export interface QuickParsed {
-  title: string
-  start: string
-  end: string
-  all_day: boolean
-  rrule: string
-  repeat_text: string
-  location: string
-  calendar_id: number
-  calendar: string
-  alarms: string[] | null
-  attendees: Attendee[]
-  recognized: string[] | null
-  has_date?: boolean
-  has_time?: boolean
-  private?: boolean
-}
+export interface Devices { carddav_url: string; username: string; ios_server: string; principal_url: string; tokens: APIToken[] | null }
+export interface DeviceLink { token: string; profile_url: string; expires_in: number; device?: APIToken }
 
 export interface Account {
   id: number
-  kind: 'caldav' | 'google' | 'ics' | 'nextcloud'
+  kind: 'nextcloud' | 'carddav' | 'icloud' | string
   name: string
   url: string
   username: string
-  via: 'direct' | 'core' | ''
-  sync_minutes: number
+  via: 'core' | 'direct'
+  mode: 'import' | 'two_way' | 'read_only' | 'off'
   enabled: boolean
+  sync_minutes: number
   last_sync_at: string
   last_error: string
   has_secret: boolean
-  calendars: number
+  addressbooks: number
+  addressbook_list?: { id: number; name: string; color: string; remote_href: string; read_only: boolean; contacts: number }[] | null
+  syncing?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
-export interface Feeds { all_url: string; all_webcal: string; caldav_url: string; caldav_user: string; principal: string }
-
-export interface APIToken { id: number; name: string; prefix: string; last_used_at: string | null; created_at: string }
+export interface Integration {
+  id: 'calendar' | 'notes' | 'tasks' | string
+  name: string
+  description: string
+  scopes: string[] | null
+  mode: Mode
+  url: string
+  has_token: boolean
+  status: 'ok' | 'off' | 'error' | ''
+  detail: string
+  public_url: string
+}
 
 export interface SystemInfo {
   version: string
