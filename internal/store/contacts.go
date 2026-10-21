@@ -304,6 +304,7 @@ type ContactWrite struct {
 	IfMatch       string // etag the client last saw ("" = no check)
 	IfNoneMatch   bool   // create only
 	FromRemote    bool   // the write comes from the remote address book (not dirty)
+	WantID        int64  // a new contact takes this id when it is free (restores)
 	RemoteHref    string
 	RemoteETag    string
 }
@@ -464,11 +465,25 @@ func (s *Store) SaveContact(ctx context.Context, w ContactWrite, hooks ...Hook) 
 	var id int64
 	created := existing == nil
 	if existing == nil {
-		res, err := tx.ExecContext(ctx, `INSERT INTO contacts (addressbook_id, uid, href, etag, vcf, kind, fn, sort_given, sort_family,
+		// ids are never reused: notes and tasks link to /contacts/<id>
+		var last, taken int64
+		_ = tx.QueryRowContext(ctx, `SELECT MAX(COALESCE((SELECT CAST(value AS INTEGER) FROM settings WHERE key = 'last_contact_id'), 0), COALESCE((SELECT MAX(id) FROM contacts), 0))`).Scan(&last)
+		newID := last + 1
+		if w.WantID > 0 {
+			if tx.QueryRowContext(ctx, `SELECT id FROM contacts WHERE id = ?`, w.WantID).Scan(&taken) != nil {
+				newID = w.WantID
+			}
+		}
+		if newID > last {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO settings (key, value) VALUES ('last_contact_id', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, newID); err != nil {
+				return nil, false, err
+			}
+		}
+		res, err := tx.ExecContext(ctx, `INSERT INTO contacts (id, addressbook_id, uid, href, etag, vcf, kind, fn, sort_given, sort_family,
 			given, family, nickname, org, title, emails, phones, bday, anniversary, categories, members, has_photo, photo_hash, source,
 			created_by, updated_by, seq, remote_href, remote_etag, dirty, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			w.AddressBookID, ix.uid, href, etag, w.VCF, ix.kind, ix.fn, ix.sortGiven, ix.sortFamily, ix.given, ix.family,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			newID, w.AddressBookID, ix.uid, href, etag, w.VCF, ix.kind, ix.fn, ix.sortGiven, ix.sortFamily, ix.given, ix.family,
 			ix.nickname, ix.org, ix.title, ix.emails, ix.phones, ix.bday, ix.anniversary, ix.categories, ix.members, ix.hasPhoto,
 			ix.photoHash, w.Source, w.Actor, w.Actor, seq, w.RemoteHref, w.RemoteETag, dirty, now, now)
 		if err != nil {
@@ -575,8 +590,8 @@ func (s *Store) DeleteContact(ctx context.Context, e *ContactRow, o DeleteContac
 		if uid == 0 {
 			uid = ab.UserID
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO deleted_contacts (user_id, addressbook_id, uid, fn, vcf, deleted_by) VALUES (?, ?, ?, ?, ?, ?)`,
-			uid, e.AddressBookID, e.UID, e.FN, e.VCF, o.Actor); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO deleted_contacts (user_id, addressbook_id, uid, fn, vcf, deleted_by, contact_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			uid, e.AddressBookID, e.UID, e.FN, e.VCF, o.Actor, e.ID); err != nil {
 			return err
 		}
 	}
@@ -785,7 +800,7 @@ func (s *Store) DoneRemoteDelete(ctx context.Context, id int64) error {
 
 // ListDeleted lists a person's recently deleted contacts, newest first.
 func (s *Store) ListDeleted(ctx context.Context, userID int64) ([]DeletedContact, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT id, addressbook_id, uid, fn, vcf, deleted_at FROM deleted_contacts WHERE user_id = ? ORDER BY deleted_at DESC LIMIT 500`, userID)
+	rows, err := s.DB.QueryContext(ctx, `SELECT id, addressbook_id, uid, fn, vcf, deleted_at, contact_id FROM deleted_contacts WHERE user_id = ? ORDER BY deleted_at DESC LIMIT 500`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -793,7 +808,7 @@ func (s *Store) ListDeleted(ctx context.Context, userID int64) ([]DeletedContact
 	out := []DeletedContact{}
 	for rows.Next() {
 		var d DeletedContact
-		if err := rows.Scan(&d.ID, &d.AddressBookID, &d.UID, &d.FN, &d.VCF, &d.DeletedAt); err != nil {
+		if err := rows.Scan(&d.ID, &d.AddressBookID, &d.UID, &d.FN, &d.VCF, &d.DeletedAt, &d.ContactID); err != nil {
 			return nil, err
 		}
 		out = append(out, d)
@@ -804,8 +819,8 @@ func (s *Store) ListDeleted(ctx context.Context, userID int64) ([]DeletedContact
 // GetDeleted returns one of a person's recently deleted contacts.
 func (s *Store) GetDeleted(ctx context.Context, userID, id int64) (*DeletedContact, error) {
 	var d DeletedContact
-	err := s.DB.QueryRowContext(ctx, `SELECT id, addressbook_id, uid, fn, vcf, deleted_at FROM deleted_contacts WHERE id = ? AND user_id = ?`, id, userID).
-		Scan(&d.ID, &d.AddressBookID, &d.UID, &d.FN, &d.VCF, &d.DeletedAt)
+	err := s.DB.QueryRowContext(ctx, `SELECT id, addressbook_id, uid, fn, vcf, deleted_at, contact_id FROM deleted_contacts WHERE id = ? AND user_id = ?`, id, userID).
+		Scan(&d.ID, &d.AddressBookID, &d.UID, &d.FN, &d.VCF, &d.DeletedAt, &d.ContactID)
 	if err != nil {
 		return nil, notFound(err)
 	}

@@ -343,10 +343,19 @@ func TestRestoreAndActivity(t *testing.T) {
 	if len(deleted) != 1 || deleted[0].FN != "Lejla Begić" {
 		t.Fatalf("deleted: %+v", deleted)
 	}
+	// the deleted id (the highest one) is never handed to someone else...
+	other := alice.create(vcard.Contact{Given: "Novi", Family: "Kontakt"})
+	if other.ID == ct.ID {
+		t.Fatalf("id %d reused for a new contact", ct.ID)
+	}
 	var back contactJSON
 	alice.json("POST", fmt.Sprintf("/api/v1/deleted/%d/restore", deleted[0].ID), nil, 200, &back)
 	if back.UID != ct.UID || back.FN != "Lejla Begić" {
 		t.Fatalf("restored: %+v", back)
+	}
+	// ...and the restored contact gets it back, so links to it work again
+	if back.ID != ct.ID {
+		t.Fatalf("restored as %d, want its old id %d", back.ID, ct.ID)
 	}
 	var acts []store.Activity
 	alice.json("GET", "/api/v1/activity", nil, 200, &acts)

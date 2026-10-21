@@ -58,10 +58,10 @@ func (s *Server) relatedSection(ctx context.Context, u *store.User, appID string
 	st, _ := s.store.GetSettings(ctx, u.ID)
 	switch mode := s.appMode(st, app); {
 	case mode == modeOff:
-		sec.Status, sec.Detail = "off", app.Name+" is switched off in Settings → Integrations"
+		sec.Status, sec.Detail = "off", app.Name+" is switched off in Settings → Apps"
 		return sec
 	case mode == modeCore && !s.core.Configured():
-		sec.Status, sec.Detail = "off", "there is no Pocket Core on this box; connect "+app.Name+" directly in Settings → Integrations"
+		sec.Status, sec.Detail = "off", "there is no Pocket Core on this box; connect "+app.Name+" directly in Settings → Apps"
 		return sec
 	}
 	sb, err := s.siblingFor(ctx, u, app)

@@ -49,14 +49,18 @@ func hasCyrillic(s string) bool {
 	return false
 }
 
-var stripMarks = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+// stripMarks is made per call: a transform.Chain keeps state and must not be
+// shared between goroutines.
+func stripMarks() transform.Transformer {
+	return transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+}
 
 // Fold is the comparison form of a name: Latin letters, lower case, no
 // diacritics, đ as d, single spaces ("Đorđe Ćosić" → "dorde cosic").
 func Fold(s string) string {
 	s = strings.ToLower(Latin(s))
 	s = strings.NewReplacer("đ", "d", "ł", "l", "ø", "o", "ß", "ss", "æ", "ae", "œ", "oe").Replace(s)
-	if out, _, err := transform.String(stripMarks, s); err == nil {
+	if out, _, err := transform.String(stripMarks(), s); err == nil {
 		s = out
 	}
 	return strings.Join(strings.Fields(s), " ")

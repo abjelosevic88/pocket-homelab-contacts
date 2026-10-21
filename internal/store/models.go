@@ -137,6 +137,7 @@ type DeletedContact struct {
 	FN            string `json:"fn"`
 	VCF           string `json:"-"`
 	DeletedAt     string `json:"deleted_at"`
+	ContactID     int64  `json:"contact_id"` // the id it had (restores take it back)
 }
 
 // Activity is one entry of a person's change log.

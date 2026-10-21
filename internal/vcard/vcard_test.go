@@ -184,3 +184,20 @@ func TestMultipleCardsAndGroups(t *testing.T) {
 		t.Fatalf("group %+v", g)
 	}
 }
+
+func TestFoldConcurrent(t *testing.T) {
+	done := make(chan bool)
+	for i := 0; i < 8; i++ {
+		go func() {
+			for j := 0; j < 500; j++ {
+				if Fold("Đorđe Ćosić Šarić") != "dorde cosic saric" {
+					t.Error("fold")
+				}
+			}
+			done <- true
+		}()
+	}
+	for i := 0; i < 8; i++ {
+		<-done
+	}
+}

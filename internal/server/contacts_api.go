@@ -468,9 +468,13 @@ func changedSections(prev, next vcard.Contact) string {
 func newUID() string { return strings.ToUpper(uuid.NewString()) }
 
 // createCard stores a new card in a book.
-func (s *Server) createCard(ctx context.Context, a actor, ab *store.AddressBook, card *vcard.Card) (*store.ContactRow, error) {
+func (s *Server) createCard(ctx context.Context, a actor, ab *store.AddressBook, card *vcard.Card, wantID ...int64) (*store.ContactRow, error) {
 	fn := card.Contact().DisplayName()
-	e, _, err := s.store.SaveContact(ctx, store.ContactWrite{AddressBookID: ab.ID, VCF: card.String(), Source: a.source, Actor: a.u.ID, IfNoneMatch: true},
+	w := store.ContactWrite{AddressBookID: ab.ID, VCF: card.String(), Source: a.source, Actor: a.u.ID, IfNoneMatch: true}
+	if len(wantID) > 0 {
+		w.WantID = wantID[0]
+	}
+	e, _, err := s.store.SaveContact(ctx, w,
 		s.contactHook(ctx, "created", ab, 0, card.UID(), fn, a.source))
 	if err != nil {
 		return nil, err
@@ -939,8 +943,8 @@ func (s *Server) handleListDeleted(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRestoreDeleted puts a deleted contact back into its book (or the
-// person's default book when they can no longer write there); a UID taken
-// meanwhile gets a new one.
+// person's default book when they can no longer write there) under the id it
+// had, so links to it work again; a UID taken meanwhile gets a new one.
 func (s *Server) handleRestoreDeleted(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	a := s.actorOf(r)
@@ -964,7 +968,7 @@ func (s *Server) handleRestoreDeleted(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.store.GetContactByUID(ctx, ab.ID, card.UID()); err == nil || card.UID() == "" {
 		card.Set("UID", newUID())
 	}
-	e, err := s.createCard(ctx, a, ab, card)
+	e, err := s.createCard(ctx, a, ab, card, d.ContactID)
 	if err != nil {
 		s.fail(w, err, "restore")
 		return
