@@ -359,11 +359,12 @@ func TestRestoreAndActivity(t *testing.T) {
 	}
 	var acts []store.Activity
 	alice.json("GET", "/api/v1/activity", nil, 200, &acts)
-	if len(acts) < 3 || acts[0].Action != "restored" || acts[1].Action != "deleted" || acts[2].Action != "created" {
+	if len(acts) < 4 || acts[0].Action != "restored" || acts[1].Action != "created" || acts[2].Action != "deleted" || acts[3].Action != "created" {
 		t.Fatalf("activity: %+v", acts)
 	}
 	alice.json("GET", fmt.Sprintf("/api/v1/contacts/%d/activity", back.ID), nil, 200, &acts)
-	if len(acts) == 0 || acts[0].Action != "restored" || *acts[0].ContactID != back.ID {
+	// the contact's own log runs on across the delete: created, deleted, restored
+	if len(acts) != 3 || acts[0].Action != "restored" || acts[2].Action != "created" || *acts[0].ContactID != back.ID {
 		t.Fatalf("contact activity: %+v", acts)
 	}
 }
