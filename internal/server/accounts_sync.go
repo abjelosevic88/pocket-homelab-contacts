@@ -197,13 +197,13 @@ func (s *Server) syncAccount(ctx context.Context, id int64, pushOnly bool) error
 	if pushOnly {
 		if err != nil {
 			rt.pushFail.Store(id, time.Now())
-			_, _ = s.store.DB.ExecContext(ctx, `UPDATE accounts SET last_error = ? WHERE id = ?`, errText(err), id)
+			_, _ = s.store.DB.ExecContext(ctx, `UPDATE accounts SET last_error = ? WHERE id = ?`, accountErrText(err), id)
 		} else {
 			rt.pushFail.Delete(id)
 		}
 	} else {
 		rt.pushFail.Delete(id)
-		s.store.SetAccountSync(ctx, id, errText(err))
+		s.store.SetAccountSync(ctx, id, accountErrText(err))
 	}
 	if err == nil && !pushOnly && a.Mode == "import" {
 		_, _ = s.store.DB.ExecContext(ctx, `UPDATE accounts SET mode = 'off', updated_at = ? WHERE id = ?`, store.Now(), id)
@@ -226,7 +226,7 @@ func (s *Server) syncAccount(ctx context.Context, id int64, pushOnly bool) error
 	return err
 }
 
-func errText(err error) string {
+func accountErrText(err error) string {
 	if err == nil {
 		return ""
 	}
