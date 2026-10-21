@@ -826,7 +826,8 @@ func (s *Store) DatedContacts(ctx context.Context, abIDs []int64) ([]*ContactRow
 		AND e.kind <> 'group' AND (e.bday <> '' OR e.anniversary <> '')`, args...))
 }
 
-// ReminderFired records a birthday reminder; false when it went out already.
+// ReminderFired records a birthday reminder and reports whether it had
+// gone out already (true: don't send it again).
 func (s *Store) ReminderFired(ctx context.Context, userID, contactID int64, day, kind string) bool {
 	res, err := s.DB.ExecContext(ctx, `INSERT OR IGNORE INTO reminder_log (user_id, contact_id, day, kind) VALUES (?, ?, ?, ?)`, userID, contactID, day, kind)
 	if err != nil {
