@@ -63,7 +63,8 @@ func Fold(s string) string {
 }
 
 // SearchForms returns the extra spellings a name should be found by:
-// the Latin transliteration and the "dj" spelling of đ.
+// the Latin transliteration and the "dj" and "d" spellings of đ (the
+// search index folds the other diacritics itself, but not đ).
 func SearchForms(s string) string {
 	forms := []string{s}
 	if l := Latin(s); l != s {
@@ -71,7 +72,7 @@ func SearchForms(s string) string {
 	}
 	low := strings.ToLower(Latin(s))
 	if strings.Contains(low, "đ") {
-		forms = append(forms, strings.ReplaceAll(low, "đ", "dj"))
+		forms = append(forms, strings.ReplaceAll(low, "đ", "dj"), strings.ReplaceAll(low, "đ", "d"))
 	}
 	return strings.Join(forms, " ")
 }

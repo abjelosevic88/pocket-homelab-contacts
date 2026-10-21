@@ -136,7 +136,7 @@ func TestFoldingAndAppleRoundTrip(t *testing.T) {
 	if got := Fold("Јелена Шарић"); got != "jelena saric" {
 		t.Fatalf("fold cyrillic %q", got)
 	}
-	if !strings.Contains(SearchForms("Đorđe"), "djordje") {
+	if !strings.Contains(SearchForms("Đorđe"), "djordje") || !strings.Contains(SearchForms("Đorđe"), "dorde") {
 		t.Fatal("dj form missing")
 	}
 	if PhoneKey("+387 65 123 456") != PhoneKey("065/123-456") {
