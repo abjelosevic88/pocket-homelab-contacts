@@ -409,6 +409,7 @@ func (s *Store) SaveContact(ctx context.Context, w ContactWrite, hooks ...Hook) 
 	if err != nil {
 		return nil, false, err
 	}
+	track := s.tracksChanges(ctx, ab) // before the transaction: one connection only
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, false, err
@@ -452,7 +453,7 @@ func (s *Store) SaveContact(ctx context.Context, w ContactWrite, hooks ...Hook) 
 		return nil, false, err
 	}
 	etag := ETag(w.VCF)
-	dirty := ab.AccountID != nil && !w.FromRemote
+	dirty := !w.FromRemote && track
 	now := Now()
 	var id int64
 	created := existing == nil
@@ -539,6 +540,7 @@ func (s *Store) DeleteContact(ctx context.Context, e *ContactRow, o DeleteContac
 	if err != nil {
 		return err
 	}
+	track := s.tracksChanges(ctx, ab) // before the transaction: one connection only
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -557,7 +559,7 @@ func (s *Store) DeleteContact(ctx context.Context, e *ContactRow, o DeleteContac
 	if _, err := tx.ExecContext(ctx, `INSERT INTO tombstones (addressbook_id, href, seq) VALUES (?, ?, ?)`, e.AddressBookID, e.Href, seq); err != nil {
 		return err
 	}
-	if ab.AccountID != nil && !o.FromRemote && e.RemoteHref != "" {
+	if !o.FromRemote && e.RemoteHref != "" && track {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO remote_deletes (addressbook_id, remote_href, remote_etag) VALUES (?, ?, ?)`, e.AddressBookID, e.RemoteHref, e.RemoteETag); err != nil {
 			return err
 		}
@@ -687,6 +689,47 @@ func (s *Store) OldestTombstone(ctx context.Context, abID int64) int64 {
 // PruneTombstones forgets deletes older than keep change numbers per book.
 func (s *Store) PruneTombstones(ctx context.Context, keep int) {
 	_, _ = s.DB.ExecContext(ctx, `DELETE FROM tombstones WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY addressbook_id ORDER BY seq DESC) AS rn FROM tombstones) WHERE rn > ?)`, keep)
+}
+
+// tracksChanges reports whether local changes of an address book are to be
+// sent to its remote one: only when it mirrors an account in two-way mode.
+// Imported books (mode import/off) and read-only mirrors keep no dirty
+// flags or pending deletes, so nothing piles up that would never be sent.
+func (s *Store) tracksChanges(ctx context.Context, ab *AddressBook) bool {
+	if ab.AccountID == nil {
+		return false
+	}
+	var mode string
+	_ = s.DB.QueryRowContext(ctx, `SELECT mode FROM accounts WHERE id = ?`, *ab.AccountID).Scan(&mode)
+	return mode == "two_way"
+}
+
+// TrackAccountChanges starts sending local changes of an account's books
+// (its mode became two-way): contacts made here that the remote has never
+// seen, and those changed after since (the last sync), are marked to push.
+// Deletes made while the account was not two-way are not replayed.
+func (s *Store) TrackAccountChanges(ctx context.Context, accountID int64, since string) error {
+	_, err := s.DB.ExecContext(ctx, `UPDATE contacts SET dirty = 1 WHERE addressbook_id IN (SELECT id FROM addressbooks WHERE account_id = ?)
+		AND (remote_href = '' OR updated_at > ?)`, accountID, since)
+	return err
+}
+
+// ForgetAccountChanges drops what an account's books had not sent yet (its
+// mode is no longer two-way).
+func (s *Store) ForgetAccountChanges(ctx context.Context, accountID int64) error {
+	if _, err := s.DB.ExecContext(ctx, `UPDATE contacts SET dirty = 0 WHERE dirty = 1 AND addressbook_id IN (SELECT id FROM addressbooks WHERE account_id = ?)`, accountID); err != nil {
+		return err
+	}
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM remote_deletes WHERE addressbook_id IN (SELECT id FROM addressbooks WHERE account_id = ?)`, accountID)
+	return err
+}
+
+// KeepDeletedCopy puts a version of a contact into Recently deleted without
+// touching the contact (the losing side of a sync conflict).
+func (s *Store) KeepDeletedCopy(ctx context.Context, userID, abID int64, uid, fn, vcf string) error {
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO deleted_contacts (user_id, addressbook_id, uid, fn, vcf, deleted_by) VALUES (?, ?, ?, ?, ?, 0)`,
+		userID, abID, uid, fn, vcf)
+	return err
 }
 
 // DirtyContacts are local changes not yet pushed to the remote address book.

@@ -12,7 +12,7 @@ Core SDK snapshot in `third_party/pocket-core`. Token prefix `pcon_`, session co
 ## Model
 
 - **Address book** = one CardDAV collection (`addressbooks`). Every person gets "Contacts" on first sign-in.
-  `kind` is `local` or the account kind (`carddav`, `nextcloud`) when it mirrors a remote address book.
+  `kind` is `local` or the account kind (`carddav`, `nextcloud`, `icloud`) when it mirrors a remote address book.
 - **Contact** = one vCard resource (`contacts`). **`vcf` is the source of truth**, stored as the client sent
   it, unknown properties included; the other columns are an index rebuilt from it. `store.SaveContact` is the
   only write path (index columns, FTS row, change number, tombstones, remote dirty flag, Core hook) and
