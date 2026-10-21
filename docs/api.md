@@ -15,7 +15,8 @@ link token (`pcx_`, other Pocket apps, only the routes of their scope). Errors a
  "role": "owner", "visible": true, "owner": {"id": 1, "name": "Aleksandar", "email": "a@x"},
  "contacts": 456, "shares": [Share…], "created_at": "…", "updated_at": "…"}
 ```
-`role`: `owner | manage | write | read`. `shares` only for owner/manage. `kind`: `local | carddav | nextcloud`.
+`role`: `owner | manage | write | read`. `shares` only for owner/manage. `kind`: `local | carddav | nextcloud | icloud`.
+`read_only: true` (a book mirrored from a read-only account, or read-only over there) refuses edits from everyone: 403.
 
 **Share** `{"id", "addressbook_id", "user_id": 2|null, "email": "", "everyone": false, "role": "read|write|manage", "person": {"id","name","email"}|null, "pending": false}`
 
@@ -146,19 +147,25 @@ vCard 2.1 (quoted-printable, Windows-1250) is upgraded to 3.0; photos are kept.
 `POST /devices` `{name: "iPhone"}` → `{"token": "pcon_…", "profile_url": "https://…/dav-profile/<code>.mobileconfig", "expires_in": 900}`:
 a new API token named "Device: iPhone" plus a one-time link (15 minutes, no login) to an Apple configuration
 profile that sets up the CardDAV account with the legacy principal path (so it shows up under Default Account).
-The web app shows the link as a QR code to scan with the iPhone camera.
+The web app shows the link as a QR code to scan with the iPhone camera. The answer also carries `"device": APIToken`.
+`DELETE /devices/{id}` revokes a device's token (204; 404 for a token that is not a device's).
+See docs/carddav.md for the URL shapes and how to connect each client.
 
 ## External accounts (sync)
 
 | | |
 |---|---|
-| `GET /accounts` | `[Account]` (`{id, kind, name, url, username, via, mode, enabled, sync_minutes, last_sync_at, last_error, has_secret, addressbooks}`) |
+| `GET /accounts` | `[Account]` (`{id, kind, name, url, username, via, mode, enabled, sync_minutes, last_sync_at, last_error, has_secret, addressbooks, addressbook_list: [{id, name, color, remote_href, read_only, contacts}], syncing, created_at, updated_at}`); `GET /accounts/{id}` one |
 | `GET /accounts/nextcloud` | `{"core": true\|false, "detail": "", "url": "https://cloud…", "username": "…"}` — whether Pocket Core has a Nextcloud login for me |
-| `POST /accounts/discover` `{kind, via, url?, username?, password?}` | `{"addressbooks": [{"href", "name", "count"}]}` without saving |
-| `POST /accounts` `{kind: "nextcloud\|carddav\|icloud", via: "core\|direct", url?, username?, password?, mode: "import\|two_way\|read_only", hrefs?: […], name?, sync_minutes?}` | 201 Account; starts the first sync at once |
-| `PUT /accounts/{id}` `{name?, password?, mode?, enabled?, sync_minutes?}` | |
+| `POST /accounts/discover` `{kind, via, url?, username?, password?}` | `{"addressbooks": [{"href", "name", "count", "read_only"}], "name": "Nextcloud"}` without saving; Nextcloud's system and "Recently contacted" books are left out; a failed sign-in is 400 in plain words |
+| `POST /accounts` `{kind: "nextcloud\|carddav\|icloud", via: "core\|direct", url?, username?, password?, mode: "import\|two_way\|read_only", hrefs?: […], name?, sync_minutes?}` | 201 Account; the books appear at once, the first sync starts in the background. `mode` defaults to `import`; no `hrefs` = every book discover lists; `icloud` needs no url (Apple ID + app-specific password); 409 when the same account is there already |
+| `PUT /accounts/{id}` `{name?, password?, mode?, enabled?, sync_minutes?}` | `mode` may also be `off`. Leaving `two_way` drops unsent changes; entering it queues contacts made here and edits since the last sync (deletes made meanwhile are not replayed) |
 | `DELETE /accounts/{id}?keep=1` | `keep=1` keeps the mirrored books as local ones |
-| `POST /accounts/{id}/sync` | sync now → Account (after the sync, up to 60 s) |
+| `POST /accounts/{id}/sync` | sync now → Account (after the sync, up to 60 s; `syncing: true` if it goes on); 400 when the account is off |
+
+Modes: `import` pulls everything once (vCards byte for byte, the remote mapping kept), then the account switches itself to
+`off` and its books are ordinary books (edits stay here, nothing is queued). `two_way` pulls and pushes. `read_only` pulls
+only and its books are `read_only` here. `last_error` says what went wrong in plain words.
 
 ## Settings, integrations, people
 
