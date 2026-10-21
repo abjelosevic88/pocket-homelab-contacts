@@ -68,6 +68,7 @@ export function Sidebar({ scope, onScope, counts, onNew, onNavigate }: Props) {
       <div className="sb-brand">
         <img src="/favicon.svg" alt="" className="sb-logo" />
         <span className="sb-title"><b>{t1}</b>{rest.length ? ' ' + rest.join(' ') : ''}</span>
+        {status?.version && <span className="sb-version" title={`Version ${status.version}`}>{/^\d/.test(status.version) ? 'v' + status.version : status.version}</span>}
       </div>
       <div className="sb-actions">
         <button type="button" className="btn primary create-btn" onClick={() => { onNew(); onNavigate() }}><Icon name="user-plus" size={17} />New contact<Kbd>N</Kbd></button>
