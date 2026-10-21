@@ -1,0 +1,21 @@
+services:
+  pocket-contacts:
+    image: ghcr.io/abjelosevic88/pocket-homelab-contacts:latest
+    container_name: pocket-contacts
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: ${TZ:-UTC}
+      BASE_URL: ${BASE_URL:-}
+      # Set both to skip the first-run setup screen and create the admin directly:
+      # ADMIN_EMAIL: ${ADMIN_EMAIL}
+      # ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # SECURE_COOKIES: "true"          # behind HTTPS
+      # AUTH_MODE: proxy                # trust Remote-User from Authelia / Authentik / Tinyauth
+      # NOTIFY_URL: http://apprise:8000/notify/contacts   # birthday reminders
+      # CORE_URL: http://pocket-core:8080              # Pocket Core: sign-in, the other Pocket apps, Nextcloud, events
+      # CORE_REGISTRATION_KEY: …
+      # DEMO_DATA: "true"               # seed made-up contacts into an empty box
+    volumes:
+      - ./data:/data                    # database, secret.key, backups
