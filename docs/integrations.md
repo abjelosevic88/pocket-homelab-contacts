@@ -37,16 +37,10 @@ Works with today's Notes (mentions.go, link route `GET /mentions` = notes:read).
 | "Remind me" | `POST /api/v1/tasks` `{title, due?: "YYYY-MM-DD", url: <contact page>, notes: "About [Name](<contact page>)"}` | the Task |
 | Link to a task | `<tasks>/today?task=<id>` | |
 
-**Change needed in Pocket Tasks:** `GET /api/v1/tasks` has no `url` filter today, so it ignores `url=` and answers
-with (up to 500) open tasks, which Contacts then filters itself — correct, but heavy, and tasks beyond the first 500
-open ones are missed. Add to Tasks:
-
-- `GET /api/v1/tasks?url=<address>` (scope `tasks:read`, already allowed by the `GET /api/v1/tasks` link route):
-  only tasks whose `url` is that address (compared without scheme, query and trailing slash), or whose notes link to
-  it — the same rule as Pocket Notes' `itemKey`/`linksTo` in mentions.go. Combine with `status=open`.
-- (alternatively `GET /api/v1/mentions?url=` with the Notes answer shape, plus a `tasks:read` link route for it.)
-
-Contacts needs no change when Tasks adds it: the request already sends `url=` and the local filter stays as a guard.
+**Pocket Tasks** (from its `contacts` branch on): `GET /api/v1/tasks?url=<address>` answers only the tasks whose
+`url` is that address or whose notes link to it — the same rule as Pocket Notes' `itemKey`/`linksTo` (host in any
+case, same path or below, own query allowed, `/contacts/12` never matches `/contacts/123`). Older Tasks versions
+ignore `url=` and answer up to 500 open tasks; the local `mentionsPage` guard keeps the result right with both.
 
 ## Other apps using Contacts
 
