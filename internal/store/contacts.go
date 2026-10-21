@@ -194,8 +194,14 @@ func searchCond(t string) (string, []any) {
 		args = append(args, m)
 	}
 	if d := strings.TrimPrefix(digits, "+"); len(d) >= 3 {
+		// "065 123" finds +387 65 123…: the trunk zero goes, unless that
+		// leaves too few digits to mean anything ("065" alone stays "065").
+		core := strings.TrimLeft(d, "0")
+		if len(core) < 3 {
+			core = d
+		}
 		parts = append(parts, `e.phones LIKE ? ESCAPE '\'`)
-		args = append(args, "%"+likeEscape(strings.TrimLeft(d, "0"))+"%")
+		args = append(args, "%"+likeEscape(core)+"%")
 	}
 	if len(parts) == 0 {
 		return `0`, nil
