@@ -261,7 +261,7 @@ input.bare, textarea.bare { border-color: transparent; background: transparent; 
 .tabs button { display: inline-flex; align-items: center; gap: 7px; background: none; border: 0; padding: 7px 11px; border-radius: 8px; color: var(--muted); cursor: pointer; white-space: nowrap; font-weight: 550; font-size: 13.5px; }
 .tabs button:hover { background: var(--hover); color: var(--text); }
 .tabs button.active { background: var(--active); color: var(--text); }
-.segmented { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); gap: 2px; }
+.segmented { width: max-content; max-width: 100%; display: inline-flex; padding: 2px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); gap: 2px; }
 .segmented button { border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 550; height: 28px; padding: 0 11px; border-radius: 7px; cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
 .segmented button:hover { color: var(--text); }
 .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm), 0 0 0 1px var(--hairline); }

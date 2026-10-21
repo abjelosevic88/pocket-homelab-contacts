@@ -75,16 +75,20 @@ export function ContactList({ title, items, total, selectedId, checked, settings
   // a new scope or query starts at the top
   useEffect(() => { scroller.current?.scrollTo({ top: 0 }); setScrollTop(0) }, [title, query])
 
-  // keep the selected contact in view (j/k, opening from the palette)
+  // keep the selected contact in view (j/k, a deep link, opening from the palette)
+  const shownFor = useRef<number | null>(null)
   useEffect(() => {
-    if (selectedId == null || !scroller.current) return
+    if (selectedId == null || !scroller.current || shownFor.current === selectedId) return
     const r = rows.find(x => x.kind === 'c' && x.c.id === selectedId)
     if (!r) return
+    shownFor.current = selectedId
     const el = scroller.current
     const top = r.top - (grouped ? HEADER_H : 0)
-    if (top < el.scrollTop) el.scrollTop = top
+    const first = el.scrollTop === 0 && r.top > el.clientHeight
+    if (first) el.scrollTop = Math.max(0, r.top - el.clientHeight / 3)
+    else if (top < el.scrollTop) el.scrollTop = top
     else if (r.top + rowH > el.scrollTop + el.clientHeight) el.scrollTop = r.top + rowH - el.clientHeight
-  }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // binary search the first row on screen
   const first = useMemo(() => {
@@ -134,6 +138,7 @@ export function ContactList({ title, items, total, selectedId, checked, settings
       {bulkBar}
       <div className="list-body">
         <div className="list-scroll" ref={scroller} onScroll={onScroll} role="listbox" aria-label={title} aria-multiselectable="true" tabIndex={-1}>
+          {current && <div className="list-letter sticky" aria-hidden="true">{current.letter}</div>}
           {items === null ? <ListSkeleton rowH={rowH} /> : count === 0 ? empty : (
             <div className="list-space" style={{ height: totalH }}>
               {visible.map(r => r.kind === 'h'
@@ -142,7 +147,6 @@ export function ContactList({ title, items, total, selectedId, checked, settings
                   onOpen={onOpen} onCheck={onCheck} onStar={onStar} />)}
             </div>
           )}
-          {current && <div className="list-letter sticky" aria-hidden="true">{current.letter}</div>}
         </div>
         {grouped && letters.length > 4 && <LetterRail letters={letters.map(l => l.letter)} onJump={jump} />}
       </div>

@@ -185,7 +185,7 @@ export interface ImportResult { total: number; created: number; merged: number; 
 export interface APIToken { id: number; name: string; prefix: string; last_used_at: string | null; created_at: string }
 
 export interface Devices { carddav_url: string; username: string; ios_server: string; principal_url: string; tokens: APIToken[] | null }
-export interface DeviceLink { token: string; profile_url: string; expires_in: number }
+export interface DeviceLink { token: string; profile_url: string; expires_in: number; device?: APIToken }
 
 export interface Account {
   id: number
@@ -201,6 +201,10 @@ export interface Account {
   last_error: string
   has_secret: boolean
   addressbooks: number
+  addressbook_list?: { id: number; name: string; color: string; remote_href: string; read_only: boolean; contacts: number }[] | null
+  syncing?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Integration {

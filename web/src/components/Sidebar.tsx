@@ -4,7 +4,7 @@ import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import type { Scope } from '../lib/scope'
 import type { AddressBook } from '../lib/types'
-import { BookDialog, ShareDialog } from './BookDialogs'
+import { BookDialog, canWrite, ShareDialog } from './BookDialogs'
 import { Icon } from './icons'
 import { Confirm, download, errMsg, Field, Kbd, type MenuItem, MenuButton, Modal, useToast } from './ui'
 
@@ -45,7 +45,7 @@ export function Sidebar({ scope, onScope, counts, onNew, onNavigate }: Props) {
       { label: 'Name & colour…', icon: 'palette', disabled: !manage, onSelect: () => setBookDlg(b) },
       { label: 'Share…', icon: 'users', disabled: !manage || b.read_only && b.kind !== 'local', onSelect: () => setShare(b) },
       { label: 'Export .vcf', icon: 'download', onSelect: () => download(`${V1}/addressbooks/${b.id}/export.vcf`) },
-      ...(b.role === 'owner' && !b.is_default ? [{ label: 'Make default', icon: 'star', onSelect: () => patchBook(b.id, { is_default: true }).then(() => toast(`New contacts go to “${b.name}”`)).catch(e => toast(errMsg(e), 'err')) }] : []),
+      ...(canWrite(b) && !b.is_default ? [{ label: 'Make default', icon: 'star', onSelect: () => patchBook(b.id, { is_default: true }).then(() => toast(`New contacts go to “${b.name}”`)).catch(e => toast(errMsg(e), 'err')) }] : []),
       'sep',
       b.role === 'owner'
         ? { label: 'Delete…', icon: 'trash', danger: true, onSelect: () => setDelBook(b) }
@@ -100,8 +100,8 @@ export function Sidebar({ scope, onScope, counts, onNew, onNavigate }: Props) {
                   <span className="ellipsis">{b.name}</span>
                   {shared && <span className="sb-owner ellipsis">{b.owner?.name || b.owner?.email}</span>}
                   {!shared && !!b.shares?.length && <Icon name="users" size={12} className="sb-flag" title="Shared" />}
-                  {b.kind !== 'local' && <Icon name="refresh" size={11} className="sb-flag" title={b.read_only ? 'Synced, read-only' : 'Synced with another server'} />}
-                  {b.read_only && b.kind === 'local' && <Icon name="lock" size={11} className="sb-flag" title="Read-only" />}
+                  {b.kind !== 'local' && !b.read_only && <Icon name="refresh" size={11} className="sb-flag" title="Synced with another server" />}
+                  {b.read_only && <Icon name="lock" size={11} className="sb-flag" title="Read-only — it mirrors an account" />}
                 </button>
                 <span className="sb-count tnum">{b.contacts || ''}</span>
                 <MenuButton label={`More for ${b.name}`} className="btn ghost xs icon-only sb-more" align="right" items={() => bookMenu(b)}><Icon name="more" size={14} /></MenuButton>

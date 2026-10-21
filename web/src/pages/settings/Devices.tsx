@@ -97,7 +97,7 @@ export function DevicesTab({ goTokens, goProfile }: { goTokens: () => void; goPr
 
       {adding && <AddDevice name={adding} onClose={() => { setAdding(null); dev.reload() }} />}
       {revoke && <Confirm title={`Revoke “${revoke.name.replace(/^Device:\s*/, '')}”?`} confirmLabel="Revoke" message="That device stops syncing right away. Contacts already on it stay there until you remove the account on the device."
-        onCancel={() => setRevoke(null)} onConfirm={async () => { const t = revoke; setRevoke(null); try { await api.del(`${V1}/tokens/${t.id}`); dev.reload(); toast('Device revoked') } catch (e) { toast(errMsg(e), 'err') } }} />}
+        onCancel={() => setRevoke(null)} onConfirm={async () => { const t = revoke; setRevoke(null); try { await api.del(`${V1}/devices/${t.id}`); dev.reload(); toast('Device revoked') } catch (e) { toast(errMsg(e), 'err') } }} />}
     </div>
   )
 }

@@ -59,7 +59,7 @@ export function BookDialog({ book, onClose }: { book?: AddressBook; onClose: () 
         </div>
         <Field label="Colour" group><ColorPalette value={color} onChange={setColor} /></Field>
         <Field label="Description"><input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional" /></Field>
-        {book && book.role === 'owner' && (
+        {book && canWrite(book) && (
           <label className="inline-switch"><Switch checked={isDefault} onChange={setIsDefault} disabled={book.is_default} label="Default address book" />New contacts go here by default</label>
         )}
         <button type="submit" hidden />
@@ -144,7 +144,10 @@ export function ShareDialog({ book, onClose }: { book: AddressBook; onClose: () 
 }
 
 /** Books the person may add contacts to. */
-export const writableBooks = (books: AddressBook[]) => books.filter(b => !b.read_only && (b.role === 'owner' || b.role === 'manage' || b.role === 'write'))
+export const canWrite = (b: Pick<AddressBook, 'read_only' | 'role'> | undefined) => !!b && !b.read_only && (b.role === 'owner' || b.role === 'manage' || b.role === 'write')
+/** May the person change this contact? (not a read role, not a read-only mirrored book) */
+export const contactWritable = (c: { role: string; addressbook_id: number }, books: AddressBook[]) => c.role !== 'read' && !books.find(b => b.id === c.addressbook_id)?.read_only
+export const writableBooks = (books: AddressBook[]) => books.filter(canWrite)
 
 export function bookOptions(books: AddressBook[]): Option<number>[] {
   return writableBooks(books).map(b => ({ value: b.id, label: b.name, color: b.color, description: b.role !== 'owner' ? `Shared by ${b.owner?.name || b.owner?.email || 'someone'}` : b.is_default ? 'Default' : undefined }))

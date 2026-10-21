@@ -32,6 +32,8 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
   )
 }
 
+const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+
 function Shell<T>({ icon, title, s, loading, children, action, empty }: { icon: string; title: string; s: RelatedSection<T> | undefined; loading: boolean; children: React.ReactNode; action?: React.ReactNode; empty: string }) {
   const off = !loading && (!s || s.status === 'off')
   return (
@@ -43,8 +45,8 @@ function Shell<T>({ icon, title, s, loading, children, action, empty }: { icon: 
         {!loading && s?.status === 'ok' && action}
       </div>
       {loading ? <div className="rel-skel"><span className="skeleton" style={{ width: '70%', height: 11 }} /><span className="skeleton" style={{ width: '45%', height: 11 }} /></div>
-        : off ? <p className="rel-msg">{s?.detail || `${title} is off.`} <Link to="/settings/apps">Turn on in Settings → Apps</Link></p>
-        : s!.status === 'error' ? <p className="rel-msg warn"><Icon name="alert" size={13} />{s!.detail || `${title} didn’t answer.`}</p>
+        : off ? <p className="rel-msg">{cap(s?.detail || '') || `${title} is off.`} <Link to="/settings/apps">Turn on in Settings → Apps</Link></p>
+        : s!.status === 'error' ? <p className="rel-msg warn"><Icon name="alert" size={13} />{cap(s!.detail) || `${title} didn’t answer.`}</p>
         : !(s!.items || []).length ? <p className="rel-msg">{empty}</p>
         : children}
     </section>

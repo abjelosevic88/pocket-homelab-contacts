@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
-import { displayName } from '../lib/contacts'
+import { displayName, fmtDate } from '../lib/contacts'
 import type { DuplicateGroup, Summary } from '../lib/types'
 import { ContactAvatar } from '../components/ContactAvatar'
 import { Icon } from '../components/icons'
@@ -107,7 +107,7 @@ function DupeCard({ c, primary, onPick, onOpen }: { c: Summary; primary: boolean
       <ul className="dupe-vals">
         {(c.phones || []).map(p => <li key={'p' + p}><Icon name="phone" size={12} />{p}</li>)}
         {(c.emails || []).map(e => <li key={'e' + e}><Icon name="mail" size={12} />{e}</li>)}
-        {c.birthday && <li><Icon name="cake" size={12} />{c.birthday}</li>}
+        {c.birthday && <li><Icon name="cake" size={12} />{fmtDate(c.birthday)}</li>}
         {!c.phones?.length && !c.emails?.length && !c.birthday && <li className="faint">No phone or email</li>}
       </ul>
       <div className="dupe-foot">

@@ -40,7 +40,7 @@ export function ContactEditor({ mode, onClose, onSaved }: { mode: EditorMode; on
   const writable = writableBooks(books)
   const defaultBook = (mode.kind === 'new' && mode.bookId && writable.some(b => b.id === mode.bookId) ? mode.bookId : 0)
     || (settings?.default_addressbook_id && writable.some(b => b.id === settings.default_addressbook_id) ? settings.default_addressbook_id : 0)
-    || writable.find(b => b.is_default && b.role === 'owner')?.id || writable[0]?.id || 0
+    || writable.find(b => b.is_default)?.id || writable[0]?.id || 0
   const startBook = editing ? editing.addressbook_id : defaultBook
 
   const [card, setCard] = useState<Card>(startCard)
@@ -174,10 +174,10 @@ export function ContactEditor({ mode, onClose, onSaved }: { mode: EditorMode; on
               <Segmented size="sm" label="Kind" value={isOrg ? 'org' : 'individual'} onChange={v => set('kind', v as Card['kind'])}
                 options={[{ value: 'individual', label: <span className="row"><Icon name="user" size={13} />Person</span> }, { value: 'org', label: <span className="row"><Icon name="building" size={13} />Company</span> }]} />
               {isOrg ? (
-                <input ref={firstField} className="ename-big" value={card.org} onChange={e => set('org', e.target.value)} placeholder="Company name" aria-label="Company name" autoFocus={!editing} />
+                <input ref={firstField} className="ename-big" value={card.org} onChange={e => set('org', e.target.value)} placeholder="Company name" aria-label="Company name" autoFocus />
               ) : (
                 <div className="two-col tight">
-                  <input ref={firstField} className="ename-big" value={card.given} onChange={e => set('given', e.target.value)} placeholder="First name" aria-label="First name" autoFocus={!editing} autoComplete="off" />
+                  <input ref={firstField} className="ename-big" value={card.given} onChange={e => set('given', e.target.value)} placeholder="First name" aria-label="First name" autoFocus autoComplete="off" />
                   <input className="ename-big" value={card.family} onChange={e => set('family', e.target.value)} placeholder="Last name" aria-label="Last name" autoComplete="off" />
                 </div>
               )}

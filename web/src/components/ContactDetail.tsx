@@ -5,6 +5,7 @@ import { useApp } from '../lib/app-context'
 import { addressLines, ago, displayName, fmtDate, fold, imHref, labelText, mapsHref, nextOccurrence, inDays, ordinalAge, smsHref, socialHref, telHref, webHref } from '../lib/contacts'
 import type { Scope } from '../lib/scope'
 import type { Activity, CardField, Contact, Summary } from '../lib/types'
+import { contactWritable } from './BookDialogs'
 import { ContactAvatar } from './ContactAvatar'
 import { Icon } from './icons'
 import { RelatedPanel } from './RelatedPanel'
@@ -27,7 +28,7 @@ interface Props {
 }
 
 export function ContactDetail({ contact: c, loading, error, all, mobile, onBack, onEdit, onDelete, onStar, onMove, onChanged, onScope, onOpen }: Props) {
-  const { settings } = useApp()
+  const { settings, books } = useApp()
   const { toast } = useToast()
   if (error) {
     return (
@@ -39,7 +40,8 @@ export function ContactDetail({ contact: c, loading, error, all, mobile, onBack,
   }
   if (!c) return <section className="detail-pane">{mobile && <DetailBar onBack={onBack} />}{loading ? <DetailSkeleton /> : null}</section>
   const card = c.card
-  const writable = c.role !== 'read'
+  const writable = contactWritable(c, books)
+  const mirrored = !!books.find(b => b.id === c.addressbook_id)?.read_only
   const name = displayName(c, settings?.display_order)
   const phones = card.phones || []
   const emails = card.emails || []
@@ -131,7 +133,7 @@ export function ContactDetail({ contact: c, loading, error, all, mobile, onBack,
               )}
               {isBare(c) && <p className="muted small bare-hint">Nothing else saved yet.{writable && <> <button type="button" className="link-btn" onClick={() => onEdit(c)}>Add a phone, email or birthday</button>.</>}</p>}
               <footer className="detail-foot">
-                <span className="row"><span className="dot" style={{ background: c.addressbook?.color }} />{c.addressbook?.name}{c.role !== 'owner' && c.addressbook?.owner && <span className="muted">· {c.addressbook.owner.name || c.addressbook.owner.email}</span>}{c.role === 'read' && <span className="badge">Read-only</span>}</span>
+                <span className="row"><span className="dot" style={{ background: c.addressbook?.color }} />{c.addressbook?.name}{c.role !== 'owner' && c.addressbook?.owner && <span className="muted">· {c.addressbook.owner.name || c.addressbook.owner.email}</span>}{!writable && <span className="badge" title={mirrored ? 'This address book mirrors an account; change it there.' : 'Shared with you to look at.'}>Read-only</span>}</span>
                 <span className="muted">Edited {ago(c.updated_at)}{sourceText(c.source)}</span>
               </footer>
               <History id={c.id} />
@@ -234,7 +236,7 @@ function PhotoButton({ c, writable, onChanged }: { c: Contact; writable: boolean
       onDrop={e => { e.preventDefault(); setOver(false); upload(e.dataTransfer.files[0]) }}>
       <MenuButton className="photo-trigger" label="Change photo" items={[
         { label: c.has_photo ? 'Choose another photo…' : 'Add a photo…', icon: 'image', onSelect: () => file.current?.click() },
-        ...(c.has_photo ? [{ label: 'Open full size', icon: 'external', onSelect: () => window.open(`${c.photo_url}${c.photo_url.includes('?') ? '&' : '?'}s=0`, '_blank') }, { label: 'Remove photo', icon: 'trash', danger: true, onSelect: remove }] : []),
+        ...(c.has_photo && c.photo_url ? [{ label: 'Open full size', icon: 'external', onSelect: () => window.open(`${c.photo_url}${c.photo_url.includes('?') ? '&' : '?'}s=0`, '_blank') }, { label: 'Remove photo', icon: 'trash', danger: true, onSelect: remove }] : []),
       ]}>
         {avatar}
         <span className="photo-edit">{busy ? <Spinner size={16} /> : <Icon name="camera" size={16} />}</span>

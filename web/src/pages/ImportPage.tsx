@@ -23,7 +23,7 @@ export default function ImportPage({ onMenu }: { onMenu?: () => void; onOpen: (i
   const { toast } = useToast()
   const navigate = useNavigate()
   const opts = bookOptions(books)
-  const def = (settings?.default_addressbook_id && opts.some(o => o.value === settings.default_addressbook_id) ? settings.default_addressbook_id : 0) || books.find(b => b.is_default && b.role === 'owner')?.id || opts[0]?.value || 0
+  const def = (settings?.default_addressbook_id && opts.some(o => o.value === settings.default_addressbook_id) ? settings.default_addressbook_id : 0) || books.find(b => b.is_default && opts.some(o => o.value === b.id))?.id || opts[0]?.value || 0
   const [source, setSource] = useState<'files' | 'paste'>('files')
   const [files, setFiles] = useState<File[]>([])
   const [text, setText] = useState('')

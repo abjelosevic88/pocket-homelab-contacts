@@ -92,7 +92,8 @@
 .qa.disabled .qa-ico { background: var(--surface-3); color: var(--faint); }
 .qa.disabled:hover { background: var(--surface-2); }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 18px; }
-@container (min-width: 820px) { .detail-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 36px; } }
+@container (min-width: 780px) { .detail-grid { grid-template-columns: minmax(0, 1fr) 272px; gap: 30px; } }
+@container (min-width: 1000px) { .detail-grid { grid-template-columns: minmax(0, 1fr) 310px; gap: 40px; } }
 .fgroup { border-top: 1px solid var(--hairline); padding: 8px 0; }
 .fgroup:first-child { border-top: 0; }
 .frow { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: baseline; min-height: 36px; padding: 3px 0; }
@@ -368,3 +369,21 @@ a.rel-title:hover { color: var(--accent-ink); }
 .share-pill { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px 0 3px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 550; max-width: 220px; }
 .app-link { font-weight: 450; }
 .set-time-select { min-width: 110px !important; }
+
+/* ---------- phones ---------- */
+.app.is-mobile .list-pane, .app.is-mobile .detail-pane { width: auto; flex: 1; border-right: 0; }
+@media (max-width: 760px) {
+  .list-head { padding: calc(8px + env(safe-area-inset-top)) 12px 8px; }
+  .list-title { font-size: 22px; }
+  .search { height: 38px; }
+  .search input { font-size: 16px; }
+  .search-kbd { display: none; }
+  .crow { left: 4px; }
+  .list-pane .crow { right: 18px; }
+  .list-scroll { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+  .rail button { font-size: 10px; }
+}
+.acct-books { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.acct-book { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 550; color: var(--text-2); }
+.acct-book .dot { width: 7px; height: 7px; }
+.acct-book .icon { color: var(--faint); }

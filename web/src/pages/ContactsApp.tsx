@@ -6,7 +6,7 @@ import { useApp } from '../lib/app-context'
 import { displayName, haystack, matches, sortContacts } from '../lib/contacts'
 import { isLocalScope, loadScope, type Scope, sameScope, scopeQuery, scopeTitle, storeScope } from '../lib/scope'
 import type { Birthday, Contact, ContactList as ContactListT, Deleted, DuplicateGroup, Summary } from '../lib/types'
-import { bookOptions } from '../components/BookDialogs'
+import { bookOptions, contactWritable } from '../components/BookDialogs'
 import { CommandPalette, type PaletteCommand } from '../components/CommandPalette'
 import { ContactDetail } from '../components/ContactDetail'
 import { ContactEditor, type EditorMode } from '../components/ContactEditor'
@@ -251,8 +251,8 @@ export default function ContactsApp() {
   const selectedSummaries = () => (items || []).filter(c => checked.has(c.id))
 
   // ---------- keyboard ----------
-  const stateRef = useRef({ items, routeId, detail, checked, onList, editor, palette })
-  stateRef.current = { items, routeId, detail, checked, onList, editor, palette }
+  const stateRef = useRef({ items, routeId, detail, checked, onList, editor, palette, books })
+  stateRef.current = { items, routeId, detail, checked, onList, editor, palette, books }
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       const s = stateRef.current
@@ -274,13 +274,13 @@ export default function ContactsApp() {
       switch (e.key) {
         case '/': e.preventDefault(); if (!s.onList) navigate('/'); setTimeout(() => searchRef.current?.focus(), 0); break
         case 'n': e.preventDefault(); newContact(); break
-        case 'e': if (s.detail && s.detail.role !== 'read') { e.preventDefault(); setEditor({ kind: 'edit', contact: s.detail }) } break
+        case 'e': if (s.detail && contactWritable(s.detail, s.books)) { e.preventDefault(); setEditor({ kind: 'edit', contact: s.detail }) } break
         case 's': if (s.detail) { e.preventDefault(); star(s.detail) } break
         case 'j': case 'ArrowDown': if (s.onList) { e.preventDefault(); move(1) } break
         case 'k': case 'ArrowUp': if (s.onList) { e.preventDefault(); move(-1) } break
         case 'Backspace': case 'Delete':
           if (s.checked.size) { e.preventDefault(); setPending({ kind: 'delete', items: list.filter(c => s.checked.has(c.id)) }) }
-          else if (s.detail && s.detail.role !== 'read') { e.preventDefault(); setPending({ kind: 'delete', items: [s.detail] }) }
+          else if (s.detail && contactWritable(s.detail, s.books)) { e.preventDefault(); setPending({ kind: 'delete', items: [s.detail] }) }
           break
         case '?': e.preventDefault(); setShortcuts(true); break
         case 'Escape': if (s.checked.size) setChecked(new Set()); break

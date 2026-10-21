@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { api, ApiError, V1 } from '../../lib/api'
 import { useApp } from '../../lib/app-context'
 import { ago } from '../../lib/contacts'
@@ -23,11 +23,11 @@ const MODES: { value: SyncMode; label: string; description: string }[] = [
   { value: 'import', label: 'Import once', description: 'Copy them here once; afterwards they live here only.' },
   { value: 'read_only', label: 'Mirror, read-only', description: 'Follow the other side; no changes from here.' },
 ]
-const modeOptions: Option<SyncMode>[] = [...MODES, { value: 'off', label: 'Paused', description: 'No syncing for now.' }]
+const modeOptions: Option<SyncMode>[] = [...MODES, { value: 'off', label: 'Off', description: 'No syncing; its books are ordinary ones here.' }]
 const SYNC: Option<number>[] = [5, 15, 30, 60, 360, 1440].map(m => ({ value: m, label: m < 60 ? `Every ${m} minutes` : m === 60 ? 'Every hour' : m === 360 ? 'Every 6 hours' : 'Once a day' }))
-const modeText = (m: string) => MODES.find(x => x.value === m)?.label || (m === 'off' ? 'Paused' : m)
+const modeText = (m: string) => MODES.find(x => x.value === m)?.label || (m === 'off' ? 'Not syncing' : m)
 
-interface Discovered { href: string; name: string; count: number }
+interface Discovered { href: string; name: string; count: number; read_only?: boolean }
 interface NextcloudCore { core: boolean; detail: string; url: string; username: string }
 
 export function AccountsTab() {
@@ -47,9 +47,15 @@ export function AccountsTab() {
   }
   const sync = async (a: Account) => {
     setSyncing(a.id)
-    try { const r = await api.post<Account>(`${V1}/accounts/${a.id}/sync`); toast(r?.last_error ? `Synced with a problem: ${r.last_error}` : 'Synced', r?.last_error ? 'err' : 'ok'); after() } catch (e) { toast(errMsg(e), 'err') } finally { setSyncing(null) }
+    try { const r = await api.post<Account>(`${V1}/accounts/${a.id}/sync`); toast(r?.last_error ? `Synced with a problem: ${r.last_error}` : r?.syncing ? 'Still syncing in the background' : 'Synced', r?.last_error ? 'err' : 'ok'); after() } catch (e) { toast(errMsg(e), 'err') } finally { setSyncing(null) }
   }
   const hasCoreNC = accounts.some(a => a.kind === 'nextcloud' && a.via === 'core')
+  const anySyncing = accounts.some(a => a.syncing)
+  useEffect(() => {
+    if (!anySyncing) return
+    const t = setTimeout(async () => { const l = await api.get<Account[]>(`${V1}/accounts`).catch(() => null); if (l) { list.setData(l); if (!l.some(a => a.syncing)) { reloadBooks().catch(() => {}); bump() } } }, 3000)
+    return () => clearTimeout(t)
+  }, [anySyncing, list.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="stack loose">
@@ -82,13 +88,18 @@ export function AccountsTab() {
                     <div className="acct-meta ellipsis">{[a.username, a.via === 'core' ? '' : hostOf(a.url)].filter(Boolean).join(' · ')}</div>
                     <div className="acct-meta">
                       <StatusDot status={status} title={a.last_error || undefined} />
-                      {syncing === a.id ? 'Syncing…' : a.mode === 'import' && a.last_sync_at ? `Imported ${ago(a.last_sync_at)}` : `${modeText(a.mode)} · synced ${ago(a.last_sync_at)}`} · {a.addressbooks} book{a.addressbooks === 1 ? '' : 's'}
+                      {syncing === a.id || a.syncing ? 'Syncing…' : a.mode === 'import' && a.last_sync_at ? `Imported ${ago(a.last_sync_at)}` : `${modeText(a.mode)} · synced ${ago(a.last_sync_at)}`} · {a.addressbooks} book{a.addressbooks === 1 ? '' : 's'}
                     </div>
+                    {!!a.addressbook_list?.length && (
+                      <div className="acct-books">
+                        {a.addressbook_list.map(b => <span key={b.id} className="acct-book" title={b.read_only ? 'Read-only here' : undefined}><span className="dot" style={{ background: b.color }} />{b.name}<span className="faint tnum">{b.contacts}</span>{b.read_only && <Icon name="lock" size={10} />}</span>)}
+                      </div>
+                    )}
                     {a.last_error && <div className="acct-error">{a.last_error}</div>}
                   </div>
                   <div className="acct-actions">
                     <Select size="sm" value={a.mode} options={modeOptions} onChange={m => put(a, { mode: m }, `Now: ${modeText(m)}`)} label={`Sync mode for ${a.name}`} width={260} className="inline" />
-                    <button type="button" className="btn ghost sm" disabled={syncing === a.id || a.mode === 'off' || !a.enabled} onClick={() => sync(a)}>
+                    <button type="button" className="btn ghost sm" disabled={syncing === a.id || !!a.syncing || a.mode === 'off' || !a.enabled} onClick={() => sync(a)}>
                       {syncing === a.id ? <Spinner /> : <Icon name="refresh" size={14} />}Sync now
                     </button>
                     <MenuButton label={`More for ${a.name}`} align="right" items={[
@@ -122,7 +133,8 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
   const [f, setF] = useState({ url: '', username: '', password: '', name: '' })
   const [found, setFound] = useState<Discovered[] | null>(null)
   const [pick, setPick] = useState<Set<string>>(new Set())
-  const [mode, setMode] = useState<SyncMode>('two_way')
+  const [mode, setMode] = useState<SyncMode>('import')
+  const [found_name, setFoundName] = useState('')
   const [busy, setBusy] = useState<'discover' | 'add' | null>(null)
   const [error, setError] = useState('')
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => { setF(x => ({ ...x, [k]: e.target.value })); setFound(null); setError('') }
@@ -130,19 +142,20 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
   const choose = (k: Kind) => {
     setKind(k); setFound(null); setError('')
     setVia(k === 'nextcloud' && nc?.core ? 'core' : 'direct')
-    setF({ url: k === 'icloud' ? 'https://contacts.icloud.com' : '', username: '', password: '', name: '' })
+    setF({ url: '', username: '', password: '', name: '' })
   }
   const creds = () => {
     const b: Record<string, unknown> = { kind, via: kind === 'nextcloud' ? via : 'direct' }
-    if (!(kind === 'nextcloud' && via === 'core')) { b.url = f.url.trim(); b.username = f.username.trim(); b.password = f.password }
+    if (!(kind === 'nextcloud' && via === 'core')) { if (kind !== 'icloud') b.url = f.url.trim(); b.username = f.username.trim(); b.password = f.password }
     return b
   }
-  const valid = kind === 'nextcloud' && via === 'core' ? !!nc?.core : !!(f.url.trim() && f.username.trim() && f.password)
+  const valid = kind === 'nextcloud' && via === 'core' ? !!nc?.core : !!((kind === 'icloud' || f.url.trim()) && f.username.trim() && f.password)
   const explain = (e: unknown) => e instanceof ApiError && e.status === 401 ? 'The user name or password was not accepted.' : errMsg(e)
   const discover = async () => {
     setBusy('discover'); setError('')
     try {
-      const r = await api.post<{ addressbooks: Discovered[] | null }>(`${V1}/accounts/discover`, creds())
+      const r = await api.post<{ addressbooks: Discovered[] | null; name?: string }>(`${V1}/accounts/discover`, creds())
+      setFoundName(r?.name || '')
       const books = r?.addressbooks || []
       setFound(books); setPick(new Set(books.map(b => b.href)))
       if (!books.length) setError('Connected, but there are no address books there.')
@@ -151,7 +164,7 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
   const add = async () => {
     setBusy('add')
     try {
-      await api.post(`${V1}/accounts`, { ...creds(), mode, hrefs: [...pick], ...(f.name.trim() ? { name: f.name.trim() } : { name: kind === 'icloud' ? 'iCloud' : kind === 'nextcloud' ? 'Nextcloud' : hostOf(f.url) }) })
+      await api.post(`${V1}/accounts`, { ...creds(), mode, hrefs: [...pick], ...(f.name.trim() ? { name: f.name.trim() } : { name: found_name || (kind === 'icloud' ? 'iCloud' : kind === 'nextcloud' ? 'Nextcloud' : hostOf(f.url)) }) })
       toast(mode === 'import' ? 'Importing now — it takes a moment' : 'Connected — syncing now')
       onAdded()
     } catch (e) { toast(explain(e), 'err') } finally { setBusy(null) }
@@ -189,9 +202,9 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
               ? <div className="callout info"><Icon name="info" size={15} /><span>Pocket Core signs in to {nc.url ? hostOf(nc.url) : 'Nextcloud'} as {nc.username || 'you'} — no address or password needed here.</span></div>
               : <div className="callout warn"><Icon name="alert" size={15} /><span>{nc?.detail || 'Pocket Core has no Nextcloud login for you.'} Connect directly with an app password instead.</span></div>
           ) : (<>
-            <Field label="Server address" help={kind === 'nextcloud' ? 'Your Nextcloud address, e.g. https://cloud.example.com' : kind === 'icloud' ? undefined : 'The CardDAV address; most servers find the address books from the base address.'}>
-              <input value={f.url} onChange={set('url')} inputMode="url" spellCheck={false} autoComplete="off" placeholder="https://" autoFocus={kind !== 'icloud'} />
-            </Field>
+            {kind !== 'icloud' && <Field label="Server address" help={kind === 'nextcloud' ? 'Your Nextcloud address, e.g. https://cloud.example.com' : 'The CardDAV address; most servers find the address books from the base address.'}>
+              <input value={f.url} onChange={set('url')} inputMode="url" spellCheck={false} autoComplete="off" placeholder="https://" autoFocus />
+            </Field>}
             <div className="two-col">
               <Field label={kind === 'icloud' ? 'Apple ID (email)' : 'User name'}><input value={f.username} onChange={set('username')} autoComplete="off" spellCheck={false} autoFocus={kind === 'icloud'} /></Field>
               <Field label={kind === 'icloud' ? 'App-specific password' : kind === 'nextcloud' ? 'App password' : 'Password'}><input type="password" value={f.password} onChange={set('password')} autoComplete="new-password" /></Field>
@@ -206,7 +219,7 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
                 {found.map(b => (
                   <label key={b.href} className={`found-row ${pick.has(b.href) ? 'on' : ''}`}>
                     <input type="checkbox" checked={pick.has(b.href)} onChange={e => setPick(s => { const n = new Set(s); if (e.target.checked) n.add(b.href); else n.delete(b.href); return n })} />
-                    <Icon name="book" size={15} /><span className="grow ellipsis">{b.name || b.href}</span><span className="muted small tnum">{b.count} contact{b.count === 1 ? '' : 's'}</span>
+                    <Icon name="book" size={15} /><span className="grow ellipsis">{b.name || b.href}</span>{b.read_only && <span className="badge" title="That server lets you read it only">Read-only</span>}<span className="muted small tnum">{b.count} contact{b.count === 1 ? '' : 's'}</span>
                   </label>
                 ))}
               </div>
@@ -219,7 +232,7 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
                   ))}
                 </div>
               </Field>
-              <Field label="Name (optional)"><input value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} placeholder={p?.name} /></Field>
+              <Field label="Name (optional)"><input value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} placeholder={found_name || p?.name} /></Field>
             </div>
           )}
         </div>
