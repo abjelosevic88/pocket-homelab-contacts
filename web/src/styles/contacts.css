@@ -387,3 +387,8 @@ a.rel-title:hover { color: var(--accent-ink); }
 .acct-book { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 550; color: var(--text-2); }
 .acct-book .dot { width: 7px; height: 7px; }
 .acct-book .icon { color: var(--faint); }
+.app.is-mobile .create-btn kbd { display: none; }
+@media (max-width: 640px) {
+  .dev-tile { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 0; align-items: center; padding: 12px; }
+  .dev-tile .dev-ico { grid-row: span 2; margin-bottom: 0; }
+}

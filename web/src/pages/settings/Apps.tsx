@@ -74,7 +74,7 @@ function AppCard({ app, onList }: { app: Integration; onList: (l: Integration[])
           <span className="small">{status === 'ok' ? 'Working' : status === 'off' ? 'Off' : 'Problem'}</span>
         </span>
       </div>
-      {status === 'error' && app.detail && <div className="callout danger small"><Icon name="alert" size={14} /><span>{app.detail}</span></div>}
+      {status === 'error' && app.detail && <div className="callout danger small"><Icon name="alert" size={14} /><span>{app.detail.charAt(0).toUpperCase() + app.detail.slice(1)}</span></div>}
       <div className="set-app-controls">
         <Segmented size="sm" label={`${app.name} connection`} value={app.mode} onChange={m => put({ mode: m })} options={modes} />
         {!advanced && app.mode !== 'direct' && <button type="button" className="link-btn small" onClick={() => setAdvanced(true)}>Advanced</button>}

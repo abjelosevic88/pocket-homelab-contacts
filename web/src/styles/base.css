@@ -286,8 +286,10 @@ input.bare, textarea.bare { border-color: transparent; background: transparent; 
 .callout.danger > .icon { color: var(--danger); }
 .callout.warn { background: var(--warning-soft); }
 .callout.warn > .icon { color: var(--warning); }
-.callout.info { background: var(--accent-soft); }
-.callout.info > .icon { color: var(--accent); }
+.callout.info { background: rgba(59, 130, 246, .09); }
+.callout.info > .icon { color: #3b82f6; }
+[data-theme="dark"] .callout.info { background: rgba(96, 165, 250, .12); }
+[data-theme="dark"] .callout.info > .icon { color: #60a5fa; }
 .callout.success { background: var(--success-soft); }
 
 /* avatar */
