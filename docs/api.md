@@ -28,6 +28,7 @@ link token (`pcx_`, other Pocket apps, only the routes of their scope). Errors a
  "initials": "MP", "color": "#0ea5e9", "updated_at": "…"}
 ```
 `emails`/`phones` are the values in card order (preferred first). `color` is a stable avatar colour from the UID.
+`photo_url` is `""` when there is no picture or the card only points to one on the web (`has_photo` is still true then).
 
 **Card** = the structured contact (internal/vcard/contact.go):
 ```json
@@ -61,6 +62,11 @@ link token (`pcx_`, other Pocket apps, only the routes of their scope). Errors a
 | `GET /addressbooks/{id}/shares`, `POST /addressbooks/{id}/shares` `{user_id?|email?|everyone?, role}` | manage+ |
 | `PUT /shares/{sid}` `{role}`, `DELETE /shares/{sid}` | manage+ |
 | `GET /addressbooks/{id}/export.vcf` | the whole book as one .vcf (read+) |
+
+`is_default` in the answer means "where my new contacts go" (settings `default_addressbook_id`, else the person's own
+default); `PUT … {is_default: true}` works on any book the person may write. A book with `read_only: true` mirrors an
+account: every change of its contacts (create, edit, label, photo, move in or out, merge, delete, import into it)
+answers 403 "this address book is read-only (it mirrors an account)"; label rename/delete and Duplicates leave it out.
 | `GET /people` | everyone on the box `[{id,name,email}]` (share picker) |
 
 ## Contacts
@@ -88,12 +94,17 @@ link token (`pcx_`, other Pocket apps, only the routes of their scope). Errors a
 {"calendar": {"status": "ok|off|error", "detail": "", "app_url": "https://calendar…",
               "items": [{"id": "77", "title": "Lunch", "start": "2026-10-22T10:00:00Z|2026-10-22", "end": "…", "all_day": false, "url": "https://calendar…/event/77", "past": false}]},
  "notes":    {"status": "ok", "detail": "", "app_url": "https://notes…", "new_url": "https://notes…/new?title=Marko%20Petrovi%C4%87&url=…&label=Marko%20Petrovi%C4%87&folder=People",
-              "items": [{"id": "401450", "title": "Kickoff", "snippet": "…", "updated_at": "…", "url": "https://notes…/notes/401450"}]},
+              "items": [{"id": "401450", "title": "Kickoff", "snippet": "…", "updated_at": "…", "url": "https://notes…/note/401450"}]},
  "tasks":    {"status": "ok", "detail": "", "app_url": "https://tasks…",
               "items": [{"id": "9", "title": "Call Marko back", "due": "2026-10-23", "done": false, "url": "https://tasks…/today?task=9"}]}}
 ```
 Every section stands alone: one app being off or down never fails the others (`status: "error"`, `detail` says why
-in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Pocket Core").
+in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Pocket Core"). `status: "off"` when the person
+switched the app off in Settings → Integrations, or it is set to go through Pocket Core and the box has none. Calendar
+items: the next 10 upcoming (soonest first), then the last 10 past ones. What each app is asked: docs/integrations.md.
+`POST /contacts/{id}/task` and `/event` answer 201; 502 with `{"error"}` when the app can't be reached. `title` may be
+empty (→ "Call <name>" / "Meeting with <name>"); `start` is a local `YYYY-MM-DDTHH:MM` (in the person's Pocket Calendar
+zone) or RFC 3339; `duration_min` defaults to 60.
 
 ## Search, labels, lookups
 
@@ -111,8 +122,8 @@ in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Poc
 `GET /birthdays?days=60&from=YYYY-MM-DD` → `[{"contact": Summary, "kind": "birthday|anniversary", "date": "2026-11-03",
 "original": "1988-11-03|--11-03", "age": 38|null, "days": 13}]` sorted by date. `days` ≤ 366.
 `GET /feed/birthdays/{feed_token}.ics` (no login, outside `/api`) → a calendar of every birthday and anniversary
-(yearly all-day events). `GET /feeds` → `{"birthdays_url": "https://…/feed/birthdays/<tok>.ics", "birthdays_webcal": "webcal://…"}`;
-`POST /feeds/rotate` makes a new secret.
+(yearly all-day events; 29 February repeats on the last day of February). `GET /feeds` → `{"birthdays_url": "https://…/feed/birthdays/<tok>.ics", "birthdays_webcal": "webcal://…"}`;
+`POST /feeds/rotate` makes a new secret (same answer as `GET /feeds`).
 
 ## Duplicates
 
@@ -120,7 +131,7 @@ in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Poc
 |---|---|
 | `GET /duplicates` | `[{"key": "…", "reason": "same name\|same email\|same phone", "contacts": [Summary]}]` — only books the person may write |
 | `POST /duplicates/merge` `{ids, primary_id?}` | merged Contact (others to Recently deleted) |
-| `POST /duplicates/ignore` `{ids}` | remember these as different people |
+| `POST /duplicates/ignore` `{ids}` | remember these as different people (204) |
 
 ## Import and export
 
@@ -129,14 +140,19 @@ in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Poc
 the matching contact, union of fields) | `skip` | `add`, `dry_run` = `1` for a preview.
 → `{"total": 456, "created": 450, "merged": 4, "skipped": 2, "failed": 0, "errors": ["line 31: …"],
 "preview": [{"fn", "emails", "phones", "action": "create|merge|skip", "match_id": 12|null}] (dry run, first 200)}`.
-vCard 2.1 (quoted-printable, Windows-1250) is upgraded to 3.0; photos are kept.
+vCard 2.1 (quoted-printable, Windows-1250) is upgraded to 3.0; photos are kept. Cards without a UID get one. CSV:
+Google (current and old export, " ::: " multi-values), Outlook, or any header row (English, Serbian/Bosnian/Croatian,
+German column names: Ime, Prezime, Mobitel, Telefon, Email, Adresa, Grad, Rođendan …); UTF-8 with or without BOM,
+UTF-16, Windows-1250; `,` `;` or tab. A merge that adds nothing counts as `skipped`, so importing the same file twice
+is a no-op. Imported contacts get `source: "import"`; an import publishes no Core event per contact.
 
 `GET /export.vcf?book=&ids=1,2,3` → `text/vcard` of the person's visible contacts (or the given ones).
 
 ## Recently deleted, activity, changes
 
 `GET /deleted` → `[{"id", "addressbook_id", "uid", "fn", "deleted_at"}]`; `POST /deleted/{id}/restore` → Contact;
-`DELETE /deleted/{id}`. `GET /activity` → `[{"id", "addressbook_id", "contact_id", "action", "summary", "detail", "created_at"}]`.
+`DELETE /deleted/{id}`. A restore goes back into the original book while the person can still write it, else into their
+default book (a UID taken meanwhile gets a new one). `GET /activity` → `[{"id", "addressbook_id", "contact_id", "action", "summary", "detail", "created_at"}]`.
 `GET /changes` → `{"stamp": n}`; the web app polls it every 10 s and reloads when it moves.
 
 ## Phones and other devices
