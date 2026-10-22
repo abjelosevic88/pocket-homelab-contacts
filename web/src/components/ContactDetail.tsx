@@ -7,6 +7,7 @@ import type { Scope } from '../lib/scope'
 import type { Activity, CardField, Contact, Summary } from '../lib/types'
 import { contactWritable } from './BookDialogs'
 import { ContactAvatar } from './ContactAvatar'
+import { AskButton } from './AskButton'
 import { Icon } from './icons'
 import { RelatedPanel } from './RelatedPanel'
 import { copyText, download, errMsg, type MenuItem, MenuButton, Spinner, useToast } from './ui'
@@ -166,6 +167,7 @@ function DetailBar({ onBack, right }: { onBack: () => void; right?: React.ReactN
     <div className="detail-bar">
       <button type="button" className="btn ghost back-btn" onClick={onBack}><Icon name="chevron-left" size={20} />Contacts</button>
       <span className="spacer" />
+      <AskButton />
       {right}
     </div>
   )
