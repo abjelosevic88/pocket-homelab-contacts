@@ -156,6 +156,7 @@ func (s *Server) Router() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5, "application/json", "text/html", "text/css", "application/javascript", "text/plain", "text/vcard", "text/calendar", "application/xml", "text/xml"))
 
+	r.Get("/pocket-ask.js", s.core.AskWidget("contacts"))
 	r.Get("/healthz", s.handleHealth)
 	r.Get("/readyz", s.handleReady)
 	r.Get("/api/health", s.handleHealth)
