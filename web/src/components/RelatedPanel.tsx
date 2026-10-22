@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { displayName } from '../lib/contacts'
-import type { Contact, Related, RelatedEvent, RelatedSection, RelatedTask } from '../lib/types'
+import type { Contact, Related, RelatedEvent, RelatedProjectItem, RelatedSection, RelatedTask } from '../lib/types'
 import { Icon } from './icons'
 import { errMsg, Segmented, Spinner, useToast } from './ui'
 
@@ -26,6 +26,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
       {err ? <div className="rel-card"><p className="rel-msg danger-text">{err}</p></div> : <>
         <CalendarSection s={data ? data.calendar : undefined} loading={!data} contact={contact} name={name} onAdd={ev => upd({ calendar: { ...(data?.calendar || { status: 'ok', detail: '' }), items: [...(data?.calendar?.items || []), ev] } })} />
         <NotesSection s={data ? data.notes : undefined} loading={!data} name={name} />
+        <ProjectsSection s={data ? data.projects : undefined} loading={!data} name={name} />
         <TasksSection s={data ? data.tasks : undefined} loading={!data} contact={contact} name={name} onAdd={t => upd({ tasks: { ...(data?.tasks || { status: 'ok', detail: '' }), items: [...(data?.tasks?.items || []), t] } })} />
       </>}
     </aside>
@@ -127,6 +128,26 @@ function NotesSection({ s, loading, name }: { s?: RelatedSection<{ id: string; t
       <ul className="rel-list">
         {(s?.items || []).map(n => (
           <li key={n.id}><a href={n.url} target="_blank" rel="noreferrer" className="rel-item"><span className="rel-item-title">{n.title || 'Untitled'}</span>{n.snippet && <span className="rel-item-sub clamp">{n.snippet}</span>}</a></li>
+        ))}
+      </ul>
+    </Shell>
+  )
+}
+
+const HEALTH: Record<string, string> = { on_track: 'On track', at_risk: 'At risk', off_track: 'Off track' }
+
+function ProjectsSection({ s, loading, name }: { s?: RelatedSection<RelatedProjectItem>; loading: boolean; name: string }) {
+  const items = (s?.items || []).filter(i => i.kind === 'project' || !i.done)
+  return (
+    <Shell icon="briefcase" title="Pocket Projects" s={s} loading={loading} empty={`${name} isn't on any project yet.`}>
+      <ul className="rel-list">
+        {items.map(it => (
+          <li key={it.id}><a href={it.url} target="_blank" rel="noreferrer" className={`rel-item ${it.kind === 'issue' ? 'task' : ''}`}>
+            {it.kind === 'issue' && <Icon name="circle" size={13} className="rel-check" />}
+            <span className="rel-item-title">{it.kind === 'issue' ? <><span className="muted">{it.identifier}</span> {it.title}</> : it.title}</span>
+            {it.kind === 'project' && <span className="rel-item-sub">{[it.done ? 'Done' : HEALTH[it.health || ''], typeof it.progress === 'number' ? `${Math.round(it.progress)}% done` : '', it.target_date ? `target ${fmtDue(it.target_date)}` : ''].filter(Boolean).join(' · ')}</span>}
+            {it.kind === 'issue' && it.due && <span className={`rel-due ${it.due < today() ? 'late' : ''}`}>{fmtDue(it.due)}</span>}
+          </a></li>
         ))}
       </ul>
     </Shell>

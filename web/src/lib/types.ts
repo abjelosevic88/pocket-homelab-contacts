@@ -165,6 +165,7 @@ export interface Related {
   calendar?: RelatedSection<RelatedEvent>
   notes?: RelatedSection<RelatedNote>
   tasks?: RelatedSection<RelatedTask>
+  projects?: RelatedSection<RelatedProjectItem>
 }
 
 export interface Activity { id: number; addressbook_id: number | null; contact_id: number | null; action: string; summary: string; detail: string; created_at: string }
@@ -232,3 +233,5 @@ export interface SystemInfo {
   db_size?: number
   users?: number
 }
+
+export interface RelatedProjectItem { id: string; kind: 'project' | 'issue'; title: string; url: string; done: boolean; status?: string; health?: string; target_date?: string; progress?: number; identifier?: string; due?: string }

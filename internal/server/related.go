@@ -256,6 +256,42 @@ func (s *Server) relatedTasks(ctx context.Context, sb *sibling, sec *RelatedSect
 	return nil
 }
 
+// relatedProjects: projects that list the contact as a stakeholder and
+// issues that name them, from Pocket Projects (GET /api/v1/related?url=).
+func (s *Server) relatedProjects(ctx context.Context, sb *sibling, sec *RelatedSection, page string) error {
+	var out struct {
+		Projects []struct {
+			ID         flexID  `json:"id"`
+			Name       string  `json:"name"`
+			Status     string  `json:"status"`
+			Health     string  `json:"health"`
+			TargetDate string  `json:"target_date"`
+			Progress   float64 `json:"progress"`
+			URL        string  `json:"url"`
+		} `json:"projects"`
+		Issues []struct {
+			ID         flexID `json:"id"`
+			Identifier string `json:"identifier"`
+			Title      string `json:"title"`
+			Done       bool   `json:"done"`
+			DueDate    string `json:"due_date"`
+			URL        string `json:"url"`
+		} `json:"issues"`
+	}
+	if err := sb.call(ctx, http.MethodGet, "/api/v1/related?url="+url.QueryEscape(page), nil, &out); err != nil {
+		return err
+	}
+	for _, p := range out.Projects {
+		sec.Items = append(sec.Items, map[string]any{"id": "p" + string(p.ID), "kind": "project", "title": p.Name, "status": p.Status, "health": p.Health,
+			"target_date": p.TargetDate, "progress": p.Progress, "url": p.URL, "done": p.Status == "completed" || p.Status == "canceled"})
+	}
+	for _, is := range out.Issues {
+		sec.Items = append(sec.Items, map[string]any{"id": "i" + string(is.ID), "kind": "issue", "identifier": is.Identifier, "title": is.Title,
+			"due": is.DueDate, "url": is.URL, "done": is.Done})
+	}
+	return nil
+}
+
 func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
@@ -283,6 +319,9 @@ func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 		},
 		"tasks": func(c context.Context, sb *sibling, sec *RelatedSection) error {
 			return s.relatedTasks(c, sb, sec, page)
+		},
+		"projects": func(c context.Context, sb *sibling, sec *RelatedSection) error {
+			return s.relatedProjects(c, sb, sec, page)
 		},
 	} {
 		wg.Add(1)

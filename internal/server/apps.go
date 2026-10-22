@@ -49,6 +49,9 @@ var pocketApps = []PocketApp{
 	{ID: "tasks", Name: "Pocket Tasks", Slug: "tasks", Scopes: []string{"tasks:read", "tasks:write"},
 		Reason:      "Show the to-dos about a person and add one (\"call back Marko\")",
 		Description: "Open tasks that link to the contact, and \"Remind me\" to add one."},
+	{ID: "projects", Name: "Pocket Projects", Slug: "projects", Scopes: []string{"projects:read"},
+		Reason:      "Show the projects a person is a stakeholder of and the issues about them",
+		Description: "Projects that list the contact as a stakeholder (client, sponsor…) and issues that name them."},
 }
 
 func pocketApp(id string) (PocketApp, bool) {
