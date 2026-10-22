@@ -5,7 +5,6 @@ import type { Settings, Summary } from '../lib/types'
 import { ContactAvatar } from './ContactAvatar'
 import { Icon } from './icons'
 import { AskButton } from './AskButton'
-import { useIsMobile } from './ui'
 
 type Row = { kind: 'h'; letter: string; top: number } | { kind: 'c'; c: Summary; idx: number; top: number }
 
@@ -115,7 +114,6 @@ export function ContactList({ title, items, total, selectedId, checked, settings
   }, [letters])
 
   const anyChecked = checked.size > 0
-  const mobile = useIsMobile()
   const count = items?.length ?? 0
 
   return (
@@ -126,7 +124,7 @@ export function ContactList({ title, items, total, selectedId, checked, settings
           <h1 className="list-title ellipsis">{title}</h1>
           <span className="list-count tnum">{query.trim() ? `${count} found` : total != null ? total : ''}</span>
           <span className="spacer" />
-          {mobile && <AskButton />}
+          <AskButton />
           {headerExtra}
         </div>
         <div className="search">
