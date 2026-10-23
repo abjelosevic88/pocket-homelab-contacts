@@ -117,11 +117,22 @@ export function SettingRow({ title, help, children, stack }: { title: React.Reac
   )
 }
 
-export function Segmented<T extends string | number>({ options, value, onChange, size = '', className = '', label }: { options: { value: T; label: React.ReactNode; title?: string }[]; value: T | null; onChange: (v: T) => void; size?: '' | 'sm'; className?: string; label?: string }) {
+export function Segmented<T extends string | number>({ options, value, onChange, size = '', className = '', label }: { options: { value: T; label: React.ReactNode; title?: string; disabled?: boolean }[]; value: T | null; onChange: (v: T) => void; size?: '' | 'sm'; className?: string; label?: string }) {
   return (
     <div className={`segmented ${size} ${className}`} role="radiogroup" aria-label={label}>
-      {options.map(o => <button key={String(o.value)} type="button" role="radio" aria-checked={o.value === value} title={o.title} className={o.value === value ? 'active' : ''} onClick={() => onChange(o.value)}>{o.label}</button>)}
+      {options.map(o => <button key={String(o.value)} type="button" role="radio" aria-checked={o.value === value} title={o.title} disabled={o.disabled} aria-disabled={o.disabled || undefined} className={o.value === value ? 'active' : ''} onClick={() => { if (!o.disabled) onChange(o.value) }}>{o.label}</button>)}
     </div>
+  )
+}
+
+/** Under a choice that only works through Pocket Core while this app has no
+ *  Core: the choice stays visible but greyed out, and this says why. */
+export function CoreHint({ className = '' }: { className?: string }) {
+  return (
+    <p className={`core-hint muted small ${className}`}>
+      Needs Pocket Core. Pocket Core connects your Pocket apps to each other and to your services: one sign-in for everyone, each person’s own accounts, nothing to copy or paste. Set <code>CORE_URL</code> to connect this app.{' '}
+      <a href="https://github.com/abjelosevic88/pocket-homelab-core" target="_blank" rel="noreferrer">Learn more</a>
+    </p>
   )
 }
 

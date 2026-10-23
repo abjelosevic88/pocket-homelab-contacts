@@ -264,6 +264,10 @@ input.bare, textarea.bare { border-color: transparent; background: transparent; 
 .segmented { width: max-content; max-width: 100%; display: inline-flex; padding: 2px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); gap: 2px; }
 .segmented button { border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 550; height: 28px; padding: 0 11px; border-radius: 7px; cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
 .segmented button:hover { color: var(--text); }
+.segmented button:disabled { opacity: .45; cursor: not-allowed; }
+.segmented button:disabled:hover { color: var(--muted); }
+.core-hint { margin: 6px 0 0; line-height: 1.45; }
+.core-hint a { color: inherit; text-decoration: underline; }
 .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm), 0 0 0 1px var(--hairline); }
 [data-theme="dark"] .segmented button.active { background: var(--surface-3); }
 .segmented.sm button { height: 24px; padding: 0 9px; font-size: 12.5px; }

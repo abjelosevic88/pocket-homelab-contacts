@@ -5,7 +5,7 @@ import { ago } from '../../lib/contacts'
 import type { Account } from '../../lib/types'
 import { Icon } from '../../components/icons'
 import { type Option, Select } from '../../components/Select'
-import { Empty, errMsg, Field, Loading, MenuButton, Modal, Segmented, Spinner, Switch, useAsync, useToast } from '../../components/ui'
+import { CoreHint, Empty, errMsg, Field, Loading, MenuButton, Modal, Segmented, Spinner, Switch, useAsync, useToast } from '../../components/ui'
 import { Section, StatusDot } from './common'
 
 type Kind = 'nextcloud' | 'icloud' | 'carddav'
@@ -127,9 +127,14 @@ export function AccountsTab() {
 function hostOf(u: string): string { try { return new URL(u).host } catch { return u } }
 
 function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; via?: Via }; nc: NextcloudCore | null; onClose: () => void; onAdded: () => void }) {
+  const { sr } = useApp()
   const { toast } = useToast()
   const [kind, setKind] = useState<Kind | null>(preset.kind || null)
-  const [via, setVia] = useState<Via>(preset.via || 'direct')
+  // Through Pocket Core needs a Core this box is registered with; without one
+  // the choice stays visible but greyed out and Direct is what is in effect
+  const coreOn = !!(sr?.core?.configured && sr.core.registered)
+  const [pickedVia, setVia] = useState<Via>(preset.via || 'direct')
+  const via: Via = coreOn ? pickedVia : 'direct'
   const [f, setF] = useState({ url: '', username: '', password: '', name: '' })
   const [found, setFound] = useState<Discovered[] | null>(null)
   const [pick, setPick] = useState<Set<string>>(new Set())
@@ -195,7 +200,10 @@ function AddAccount({ preset, nc, onClose, onAdded }: { preset: { kind?: Kind; v
       ) : (
         <div className="stack">
           {kind === 'nextcloud' && (
-            <Segmented value={via} onChange={v => { setVia(v); setFound(null); setError('') }} label="How to connect" options={[{ value: 'core', label: 'Through Pocket Core' }, { value: 'direct', label: 'Direct' }]} />
+            <div>
+              <Segmented value={via} onChange={v => { setVia(v); setFound(null); setError('') }} label="How to connect" options={[{ value: 'core', label: 'Through Pocket Core', disabled: !coreOn }, { value: 'direct', label: 'Direct' }]} />
+              {!coreOn && <CoreHint />}
+            </div>
           )}
           {coreNC ? (
             nc?.core

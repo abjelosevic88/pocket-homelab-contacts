@@ -3,7 +3,7 @@ import { api, V1 } from '../../lib/api'
 import { useApp } from '../../lib/app-context'
 import type { Integration, Mode } from '../../lib/types'
 import { Icon } from '../../components/icons'
-import { errMsg, Field, Loading, Segmented, Spinner, useAsync, useToast } from '../../components/ui'
+import { CoreHint, errMsg, Field, Loading, Segmented, Spinner, useAsync, useToast } from '../../components/ui'
 import { StatusDot } from './common'
 
 const META: Record<string, { icon: string; color: string; what: string }> = {
@@ -16,28 +16,32 @@ export function AppsTab() {
   const { sr } = useApp()
   const list = useAsync(() => api.get<Integration[]>(`${V1}/integrations`), [])
   const core = sr?.core
+  const coreOn = !!(core?.configured && core.registered)
   return (
     <div className="stack loose">
       <div className="callout info">
         <Icon name="layers" size={16} />
         <div>
-          <b>Pocket Core is the default and needs no setup.</b> Each app is read as you through a Pocket Core app link, so you only ever see your own meetings, notes and to-dos on a contact.
+          {coreOn
+            ? <><b>Pocket Core is the default and needs no setup.</b> Each app is read as you through a Pocket Core app link, so you only ever see your own meetings, notes and to-dos on a contact.</>
+            : <>Without Pocket Core, <i>Pocket Core</i> is greyed out below: use <i>Direct</i> for an app, with its address and a token from that app.</>}
           <div className="small mt-s">
             Pocket Core: {!core?.configured ? <span className="danger-text">not configured on this box</span> : core.registered ? <span className="ok-text">connected</span> : <span className="danger-text">not reachable{core.error ? ` — ${core.error}` : ''}</span>}
           </div>
+          {sr && !coreOn && <CoreHint />}
         </div>
       </div>
       {list.error ? <div className="callout danger"><Icon name="alert" size={15} /><span>{list.error}</span></div>
         : !list.data ? <Loading /> : (
           <div className="set-apps">
-            {list.data.map(app => <AppCard key={app.id} app={app} onList={l => list.setData(l)} />)}
+            {list.data.map(app => <AppCard key={app.id} app={app} coreOn={coreOn || !sr} onList={l => list.setData(l)} />)}
           </div>
         )}
     </div>
   )
 }
 
-function AppCard({ app, onList }: { app: Integration; onList: (l: Integration[]) => void }) {
+function AppCard({ app, coreOn, onList }: { app: Integration; coreOn: boolean; onList: (l: Integration[]) => void }) {
   const { toast } = useToast()
   const [url, setUrl] = useState(app.url || '')
   const [token, setToken] = useState('')
@@ -56,13 +60,16 @@ function AppCard({ app, onList }: { app: Integration; onList: (l: Integration[])
       setToken('')
     } catch (e) { toast(errMsg(e), 'err') } finally { setBusy(false) }
   }
-  const status: 'ok' | 'error' | 'off' = app.mode === 'off' ? 'off' : app.status === 'error' ? 'error' : 'ok'
-  const modes = advanced || app.mode === 'direct'
-    ? [{ value: 'core' as Mode, label: 'Pocket Core' }, { value: 'direct' as Mode, label: 'Direct' }, { value: 'off' as Mode, label: 'Off' }]
+  // without a Core, Pocket Core is greyed out, a saved "core" shows as off (it
+  // comes back once Core is connected) and Direct is offered right away
+  const mode: Mode = !coreOn && app.mode === 'core' ? 'off' : app.mode
+  const status: 'ok' | 'error' | 'off' = mode === 'off' ? 'off' : app.status === 'error' ? 'error' : 'ok'
+  const modes = advanced || !coreOn || app.mode === 'direct'
+    ? [{ value: 'core' as Mode, label: 'Pocket Core', disabled: !coreOn }, { value: 'direct' as Mode, label: 'Direct' }, { value: 'off' as Mode, label: 'Off' }]
     : [{ value: 'core' as Mode, label: 'Pocket Core' }, { value: 'off' as Mode, label: 'Off' }]
 
   return (
-    <section className={`set-app ${app.mode === 'off' ? 'off' : ''}`}>
+    <section className={`set-app ${mode === 'off' ? 'off' : ''}`}>
       <div className="set-app-head">
         <span className="set-app-ico" style={{ background: meta.color }}><Icon name={meta.icon} size={16} /></span>
         <div className="grow">
@@ -76,8 +83,8 @@ function AppCard({ app, onList }: { app: Integration; onList: (l: Integration[])
       </div>
       {status === 'error' && app.detail && <div className="callout danger small"><Icon name="alert" size={14} /><span>{app.detail.charAt(0).toUpperCase() + app.detail.slice(1)}</span></div>}
       <div className="set-app-controls">
-        <Segmented size="sm" label={`${app.name} connection`} value={app.mode} onChange={m => put({ mode: m })} options={modes} />
-        {!advanced && app.mode !== 'direct' && <button type="button" className="link-btn small" onClick={() => setAdvanced(true)}>Advanced</button>}
+        <Segmented size="sm" label={`${app.name} connection`} value={mode} onChange={m => put({ mode: m })} options={modes} />
+        {!advanced && coreOn && app.mode !== 'direct' && <button type="button" className="link-btn small" onClick={() => setAdvanced(true)}>Advanced</button>}
         {app.scopes?.length ? <span className="faint xsmall">{app.scopes.join(' · ')}</span> : null}
       </div>
       {app.mode === 'direct' && (
