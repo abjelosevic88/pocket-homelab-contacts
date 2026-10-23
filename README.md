@@ -1,6 +1,13 @@
 <p align="center"><img src="web/public/favicon.svg" width="72" alt=""></p>
 <h1 align="center">Pocket Contacts</h1>
 <p align="center">Self-hosted contacts for a household: everyone you know in one searchable place, synced to every phone over CardDAV, imported from wherever they live today, and connected to the meetings, notes and to-dos you have with them.<br>One Go binary, one SQLite file, one volume.</p>
+<p align="center">
+  <a href="https://github.com/abjelosevic88/pocket-homelab-contacts/actions"><img src="https://github.com/abjelosevic88/pocket-homelab-contacts/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/abjelosevic88/pocket-homelab-contacts/pkgs/container/pocket-homelab-contacts"><img src="https://img.shields.io/badge/ghcr.io-amd64%20%7C%20arm64-blue" alt="image"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
+</p>
+
+---
 
 <p align="center"><img src="docs/screenshots/desktop-contact.png" width="900" alt="A contact with quick actions, birthday, labels and the Connected panel"></p>
 
