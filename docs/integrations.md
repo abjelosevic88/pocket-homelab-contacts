@@ -1,6 +1,6 @@
 # Pocket Contacts and the other Pocket apps
 
-A contact's page shows the person in Pocket Calendar, Pocket Notes and Pocket Tasks
+A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects and Pocket Forms
 (`GET /api/v1/contacts/{id}/related`, internal/server/related.go). Contacts reaches each app **as the person**:
 through a Pocket Core app link (`pcx_` token, scopes below) or a direct address + API token pasted in
 Settings → Integrations. The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
@@ -41,6 +41,15 @@ Works with today's Notes (mentions.go, link route `GET /mentions` = notes:read).
 `url` is that address or whose notes link to it — the same rule as Pocket Notes' `itemKey`/`linksTo` (host in any
 case, same path or below, own query allowed, `/contacts/12` never matches `/contacts/123`). Older Tasks versions
 ignore `url=` and answer up to 500 open tasks; the local `mentionsPage` guard keeps the result right with both.
+
+## Pocket Forms — `forms:read`
+
+| What | Request | Used from the answer |
+|---|---|---|
+| Answers the person sent | `GET /api/v1/responses?email=<email>&limit=20` for each email of the contact (up to 5) | `{items: [Response]}`: `id`, `form_id`, `form_title`, `form_emoji`, `number`, `preview` (→ `snippet`), `status`, `created_at` — deduplicated by `id`, `spam` left out, newest first, at most 20 |
+| Link to an answer | `<forms>/answers/<id>` | |
+
+Works with Pocket Forms 0.1.0 (link route `GET /responses` = forms:read; `email=` matches exactly, any case).
 
 ## Other apps using Contacts
 

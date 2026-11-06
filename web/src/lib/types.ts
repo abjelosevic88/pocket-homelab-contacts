@@ -166,6 +166,7 @@ export interface Related {
   notes?: RelatedSection<RelatedNote>
   tasks?: RelatedSection<RelatedTask>
   projects?: RelatedSection<RelatedProjectItem>
+  forms?: RelatedSection<RelatedFormAnswer>
 }
 
 export interface Activity { id: number; addressbook_id: number | null; contact_id: number | null; action: string; summary: string; detail: string; created_at: string }
@@ -235,3 +236,4 @@ export interface SystemInfo {
 }
 
 export interface RelatedProjectItem { id: string; kind: 'project' | 'issue'; title: string; url: string; done: boolean; status?: string; health?: string; target_date?: string; progress?: number; identifier?: string; due?: string }
+export interface RelatedFormAnswer { id: string; form_id: string; title: string; emoji?: string; number?: number; snippet?: string; status: string; created_at: string; url: string }

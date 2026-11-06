@@ -97,12 +97,14 @@ answers 403 "this address book is read-only (it mirrors an account)"; label rena
  "notes":    {"status": "ok", "detail": "", "app_url": "https://notes…", "new_url": "https://notes…/new?title=Marko%20Petrovi%C4%87&url=…&label=Marko%20Petrovi%C4%87&folder=People",
               "items": [{"id": "401450", "title": "Kickoff", "snippet": "…", "updated_at": "…", "url": "https://notes…/note/401450"}]},
  "tasks":    {"status": "ok", "detail": "", "app_url": "https://tasks…",
-              "items": [{"id": "9", "title": "Call Marko back", "due": "2026-10-23", "done": false, "url": "https://tasks…/today?task=9"}]}}
+              "items": [{"id": "9", "title": "Call Marko back", "due": "2026-10-23", "done": false, "url": "https://tasks…/today?task=9"}]},
+ "forms":    {"status": "ok", "detail": "", "app_url": "https://forms…",
+              "items": [{"id": "31", "form_id": "4", "title": "Client brief", "emoji": "📝", "number": 12, "snippet": "Website for…", "status": "new", "created_at": "2026-11-06T09:12:00Z", "url": "https://forms…/answers/31"}]}}
 ```
 Every section stands alone: one app being off or down never fails the others (`status: "error"`, `detail` says why
 in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Pocket Core"). `status: "off"` when the person
 switched the app off in Settings → Integrations, or it is set to go through Pocket Core and the box has none. Calendar
-items: the next 10 upcoming (soonest first), then the last 10 past ones. What each app is asked: docs/integrations.md.
+items: the next 10 upcoming (soonest first), then the last 10 past ones; Forms items: newest first, at most 20. What each app is asked: docs/integrations.md.
 `POST /contacts/{id}/task` and `/event` answer 201; 502 with `{"error"}` when the app can't be reached. `title` may be
 empty (→ "Call <name>" / "Meeting with <name>"); `start` is a local `YYYY-MM-DDTHH:MM` (in the person's Pocket Calendar
 zone) or RFC 3339; `duration_min` defaults to 60.

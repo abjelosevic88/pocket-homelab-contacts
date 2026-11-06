@@ -436,6 +436,13 @@ func TestRelatedApps(t *testing.T) {
 			fmt.Fprintf(w, `{"tasks":[{"id":9,"title":"Call Marko back","due":"2026-10-23","status":"open","url":%q},
 				{"id":10,"title":"Unrelated","status":"open","notes":"see https://contacts.example/contacts/999"},
 				{"id":11,"title":"Send offer","status":"open","notes":"About [Marko](%s)."}],"total":3}`, page, page)
+		case "GET /api/v1/responses": // Pocket Forms
+			if r.URL.Query().Get("email") != "marko@example.com" {
+				t.Errorf("responses asked for %q", r.URL.Query().Get("email"))
+			}
+			fmt.Fprint(w, `{"items":[{"id":30,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":11,"name":"Marko","email":"marko@example.com","preview":"Old site","status":"done","created_at":"2026-10-01T09:00:00Z"},
+				{"id":31,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":12,"name":"Marko","email":"marko@example.com","preview":"Website for the shop","status":"new","created_at":"2026-11-06T09:12:00.123Z"},
+				{"id":32,"form_id":5,"form_title":"Contact","number":3,"email":"marko@example.com","preview":"buy now","status":"spam","created_at":"2026-11-07T09:00:00Z"}],"total":3,"new":1}`)
 		case "POST /api/v1/tasks", "POST /api/v1/events":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -452,7 +459,7 @@ func TestRelatedApps(t *testing.T) {
 	}))
 	defer fake.Close()
 	ctx := context.Background()
-	for _, app := range []string{"calendar", "notes", "tasks"} {
+	for _, app := range []string{"calendar", "notes", "tasks", "forms"} {
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode."+app, "direct")
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.url."+app, fake.URL)
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token."+app, "tok")
@@ -473,6 +480,11 @@ func TestRelatedApps(t *testing.T) {
 	if tasks.Status != "ok" || len(tasks.Items) != 2 || tasks.Items[0]["title"] != "Call Marko back" || tasks.Items[1]["title"] != "Send offer" {
 		t.Fatalf("tasks: %+v", tasks)
 	}
+	forms := rel["forms"]
+	if forms.Status != "ok" || len(forms.Items) != 2 || forms.Items[0]["id"] != "31" || forms.Items[0]["url"] != fake.URL+"/answers/31" ||
+		forms.Items[0]["title"] != "Client brief" || forms.Items[0]["snippet"] != "Website for the shop" || forms.Items[1]["id"] != "30" {
+		t.Fatalf("forms: %+v", forms)
+	}
 	var item struct {
 		Item map[string]any `json:"item"`
 	}
@@ -489,7 +501,7 @@ func TestRelatedApps(t *testing.T) {
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.notes", "off")
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token.tasks", "wrong")
 	alice.json("GET", fmt.Sprintf("/api/v1/contacts/%d/related", ct.ID), nil, 200, &rel)
-	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" {
+	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" {
 		t.Fatalf("independent sections: %+v", rel)
 	}
 }

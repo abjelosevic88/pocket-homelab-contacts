@@ -1,9 +1,9 @@
-// "Connected": the meetings, notes and to-dos about this person in the other Pocket apps.
+// "Connected": the meetings, notes, to-dos and form answers about this person in the other Pocket apps.
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { displayName } from '../lib/contacts'
-import type { Contact, Related, RelatedEvent, RelatedProjectItem, RelatedSection, RelatedTask } from '../lib/types'
+import type { Contact, Related, RelatedEvent, RelatedFormAnswer, RelatedProjectItem, RelatedSection, RelatedTask } from '../lib/types'
 import { Icon } from './icons'
 import { errMsg, Segmented, Spinner, useToast } from './ui'
 
@@ -27,6 +27,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
         <CalendarSection s={data ? data.calendar : undefined} loading={!data} contact={contact} name={name} onAdd={ev => upd({ calendar: { ...(data?.calendar || { status: 'ok', detail: '' }), items: [...(data?.calendar?.items || []), ev] } })} />
         <NotesSection s={data ? data.notes : undefined} loading={!data} name={name} />
         <ProjectsSection s={data ? data.projects : undefined} loading={!data} name={name} />
+        <FormsSection s={data ? data.forms : undefined} loading={!data} name={name} />
         <TasksSection s={data ? data.tasks : undefined} loading={!data} contact={contact} name={name} onAdd={t => upd({ tasks: { ...(data?.tasks || { status: 'ok', detail: '' }), items: [...(data?.tasks?.items || []), t] } })} />
       </>}
     </aside>
@@ -147,6 +148,28 @@ function ProjectsSection({ s, loading, name }: { s?: RelatedSection<RelatedProje
             <span className="rel-item-title">{it.kind === 'issue' ? <><span className="muted">{it.identifier}</span> {it.title}</> : it.title}</span>
             {it.kind === 'project' && <span className="rel-item-sub">{[it.done ? 'Done' : HEALTH[it.health || ''], typeof it.progress === 'number' ? `${Math.round(it.progress)}% done` : '', it.target_date ? `target ${fmtDue(it.target_date)}` : ''].filter(Boolean).join(' · ')}</span>}
             {it.kind === 'issue' && it.due && <span className={`rel-due ${it.due < today() ? 'late' : ''}`}>{fmtDue(it.due)}</span>}
+          </a></li>
+        ))}
+      </ul>
+    </Shell>
+  )
+}
+
+function fmtDay(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })
+}
+
+function FormsSection({ s, loading, name }: { s?: RelatedSection<RelatedFormAnswer>; loading: boolean; name: string }) {
+  return (
+    <Shell icon="inbox" title="Pocket Forms" s={s} loading={loading} empty={s?.detail ? cap(s.detail) + '.' : `${name} hasn't answered any of your forms yet.`}>
+      <ul className="rel-list">
+        {(s?.items || []).map(a => (
+          <li key={a.id}><a href={a.url} target="_blank" rel="noreferrer" className="rel-item">
+            <span className="rel-item-title">{a.emoji ? `${a.emoji} ` : ''}{a.title || 'Form'}</span>
+            {a.snippet && <span className="rel-item-sub clamp">{a.snippet}</span>}
+            <span className="rel-item-sub">{[a.number ? `#${a.number}` : '', fmtDay(a.created_at), a.status === 'new' ? 'New' : ''].filter(Boolean).join(' · ')}</span>
           </a></li>
         ))}
       </ul>

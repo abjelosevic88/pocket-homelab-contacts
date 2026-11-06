@@ -17,9 +17,9 @@ import (
 // A contact in the other Pocket apps, reached as the person (apps.go):
 // meetings with them in Pocket Calendar (an email of theirs is a guest),
 // notes that link to their page in Pocket Notes, open tasks that link to it
-// in Pocket Tasks. Each section stands alone: an app that is off, not
-// linked or down never fails the others. docs/integrations.md lists what
-// each app answers.
+// in Pocket Tasks, answers they sent to the person's forms in Pocket Forms.
+// Each section stands alone: an app that is off, not linked or down never
+// fails the others. docs/integrations.md lists what each app answers.
 
 const relatedTimeout = 8 * time.Second
 
@@ -292,6 +292,53 @@ func (s *Server) relatedProjects(ctx context.Context, sb *sibling, sec *RelatedS
 	return nil
 }
 
+// relatedForms: the answers the contact sent to the person's forms in
+// Pocket Forms, matched by each of their emails (GET /api/v1/responses?email=),
+// newest first; spam is left out.
+func (s *Server) relatedForms(ctx context.Context, sb *sibling, sec *RelatedSection, ct vcard.Contact) error {
+	if len(ct.Emails) == 0 {
+		sec.Detail = "add an email address to see the answers they sent"
+		return nil
+	}
+	seen := map[string]bool{}
+	for i, f := range ct.Emails {
+		if i == 5 {
+			break
+		}
+		email := strings.ToLower(strings.TrimSpace(f.Value))
+		var out struct {
+			Items []struct {
+				ID        flexID `json:"id"`
+				FormID    flexID `json:"form_id"`
+				FormTitle string `json:"form_title"`
+				FormEmoji string `json:"form_emoji"`
+				Number    int    `json:"number"`
+				Preview   string `json:"preview"`
+				Status    string `json:"status"`
+				CreatedAt string `json:"created_at"`
+			} `json:"items"`
+		}
+		if err := sb.call(ctx, http.MethodGet, "/api/v1/responses?limit=20&email="+url.QueryEscape(email), nil, &out); err != nil {
+			return err
+		}
+		for _, a := range out.Items {
+			if a.Status == "spam" || seen[string(a.ID)] {
+				continue
+			}
+			seen[string(a.ID)] = true
+			sec.Items = append(sec.Items, map[string]any{"id": string(a.ID), "form_id": string(a.FormID), "title": a.FormTitle, "emoji": a.FormEmoji,
+				"number": a.Number, "snippet": a.Preview, "status": a.Status, "created_at": a.CreatedAt, "url": sb.public + "/answers/" + string(a.ID)})
+		}
+	}
+	sort.SliceStable(sec.Items, func(i, j int) bool {
+		return whenOf(sec.Items[i]["created_at"].(string)).After(whenOf(sec.Items[j]["created_at"].(string)))
+	})
+	if len(sec.Items) > 20 {
+		sec.Items = sec.Items[:20]
+	}
+	return nil
+}
+
 func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
@@ -322,6 +369,9 @@ func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 		},
 		"projects": func(c context.Context, sb *sibling, sec *RelatedSection) error {
 			return s.relatedProjects(c, sb, sec, page)
+		},
+		"forms": func(c context.Context, sb *sibling, sec *RelatedSection) error {
+			return s.relatedForms(c, sb, sec, ct)
 		},
 	} {
 		wg.Add(1)

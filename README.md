@@ -64,6 +64,7 @@
 - **Pocket Notes**: the notes that mention someone, *New note* about them; in Notes, *Link to something* inserts a
   link to the person.
 - **Pocket Tasks**: the to-dos about someone, *Remind me* to call them back.
+- **Pocket Forms**: the answers someone sent to your forms (matched by their email).
 - Birthday reminders through Apprise, ntfy or a webhook, and a subscribable birthday calendar.
 
 ## Run it

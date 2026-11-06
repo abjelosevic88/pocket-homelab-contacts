@@ -68,6 +68,7 @@ token the person pastes; never a box key):
 | Pocket Calendar | `calendar:read`, `calendar:write` | past/upcoming events where an email of the contact is a guest (`/api/v1/search?q=<email>`), "New event" with the contact invited |
 | Pocket Notes | `notes:read` | notes that link to the contact's page (`/api/v1/mentions?url=`), "New note" (`<notes>/new?title&url&label&folder=People`) |
 | Pocket Tasks | `tasks:read`, `tasks:write` | open tasks that link to the contact's page, "Remind me" creates one |
+| Pocket Forms | `forms:read` | answers the contact sent to the person's forms (`/api/v1/responses?email=<email>`) |
 
 The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
 Other apps use Contacts the other way round: Calendar shows birthdays and suggests guests (`contacts:read`
