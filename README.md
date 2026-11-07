@@ -67,6 +67,8 @@
 - **Pocket Forms**: the answers someone sent to your forms (matched by their email).
 - **Pocket CRM**: the deals you have with someone or their company — open ones first with their stage, amount and
   next step — and *Start a deal* with them.
+- **Pocket Tables**: the rows about someone in your own tables — their email in an email field, their card picked in a
+  contact field, or their name — each opening the row.
 - Birthday reminders through Apprise, ntfy or a webhook, and a subscribable birthday calendar.
 
 ## Run it

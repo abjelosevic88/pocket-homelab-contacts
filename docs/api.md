@@ -101,13 +101,15 @@ answers 403 "this address book is read-only (it mirrors an account)"; label rena
  "forms":    {"status": "ok", "detail": "", "app_url": "https://forms…",
               "items": [{"id": "31", "form_id": "4", "title": "Client brief", "emoji": "📝", "number": 12, "snippet": "Website for…", "status": "new", "created_at": "2026-11-06T09:12:00Z", "url": "https://forms…/answers/31"}]},
  "crm":      {"status": "ok", "detail": "", "app_url": "https://crm…", "new_url": "https://crm…/deals/new?company=Acme&email=marko%40example.com&name=Marko+Petrovi%C4%87",
-              "items": [{"id": "7", "title": "Acme — new shop", "stage_name": "Proposal", "stage_color": "#e8590c", "status": "open|won|lost", "amount": 4500, "currency": "EUR", "next_action": "Send the offer", "next_due": "2026-11-10", "overdue": false, "company": "Acme", "closed_at": "", "updated_at": "…", "url": "https://crm…/deals/7"}]}}
+              "items": [{"id": "7", "title": "Acme — new shop", "stage_name": "Proposal", "stage_color": "#e8590c", "status": "open|won|lost", "amount": 4500, "currency": "EUR", "next_action": "Send the offer", "next_due": "2026-11-10", "overdue": false, "company": "Acme", "closed_at": "", "updated_at": "…", "url": "https://crm…/deals/7"}]},
+ "tables":   {"status": "ok", "detail": "", "app_url": "https://tables…",
+              "items": [{"id": "12", "title": "Marko Petrović", "table": "Clients", "base": "Bakery", "field": "Email", "url": "https://tables…/r/12"}]}}
 ```
 Every section stands alone: one app being off or down never fails the others (`status: "error"`, `detail` says why
 in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Pocket Core"). `status: "off"` when the person
 switched the app off in Settings → Integrations, or it is set to go through Pocket Core and the box has none. Calendar
 items: the next 10 upcoming (soonest first), then the last 10 past ones; Forms items: newest first, at most 20; CRM items: open deals
-first (soonest next step first), then won and lost ones, newest first, at most 30. What each app is asked: docs/integrations.md.
+first (soonest next step first), then won and lost ones, newest first, at most 30; Tables items: in the order Pocket Tables gives them, each row once, at most 30. What each app is asked: docs/integrations.md.
 `POST /contacts/{id}/task` and `/event` answer 201; 502 with `{"error"}` when the app can't be reached. `title` may be
 empty (→ "Call <name>" / "Meeting with <name>"); `start` is a local `YYYY-MM-DDTHH:MM` (in the person's Pocket Calendar
 zone) or RFC 3339; `duration_min` defaults to 60.

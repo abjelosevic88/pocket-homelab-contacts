@@ -58,6 +58,9 @@ var pocketApps = []PocketApp{
 	{ID: "crm", Name: "Pocket CRM", Slug: "crm", Scopes: []string{"crm:read"},
 		Reason:      "Show the deals you have with a person or company on their page",
 		Description: "Deals with the person (matched by email) or their company, open ones first, and \"Start a deal\" with them."},
+	{ID: "tables", Name: "Pocket Tables", Slug: "tables", Scopes: []string{"tables:read"},
+		Reason:      "Show on a person's page the rows about them in your own tables (their email, the contact picked in a row, or their name)",
+		Description: "Rows in your tables about the person: their email in an email field, the contact picked in a row, or their name."},
 }
 
 func pocketApp(id string) (PocketApp, bool) {

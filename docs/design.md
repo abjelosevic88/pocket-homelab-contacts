@@ -70,6 +70,7 @@ token the person pastes; never a box key):
 | Pocket Tasks | `tasks:read`, `tasks:write` | open tasks that link to the contact's page, "Remind me" creates one |
 | Pocket Forms | `forms:read` | answers the contact sent to the person's forms (`/api/v1/responses?email=<email>`) |
 | Pocket CRM | `crm:read` | deals with the contact or their company (`/api/v1/lookup?email=<email>&company=<org>`), "Start a deal" (`<crm>/deals/new?name&email&company`) |
+| Pocket Tables | `tables:read` | rows about the contact in the person's tables (`/api/v1/lookup?contact=<card id>&name=<name>&email=<email>`) |
 
 The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
 Other apps use Contacts the other way round: Calendar shows birthdays and suggests guests (`contacts:read`

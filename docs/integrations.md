@@ -1,7 +1,7 @@
 # Pocket Contacts and the other Pocket apps
 
-A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects, Pocket Forms
-and Pocket CRM
+A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects, Pocket Forms,
+Pocket CRM and Pocket Tables
 (`GET /api/v1/contacts/{id}/related`, internal/server/related.go). Contacts reaches each app **as the person**:
 through a Pocket Core app link (`pcx_` token, scopes below) or a direct address + API token pasted in
 Settings → Integrations. The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
@@ -61,6 +61,16 @@ Works with Pocket Forms 0.1.0 (link route `GET /responses` = forms:read; `email=
 | Start a deal | `<crm>/deals/new?name=<name>&email=<first email>&company=<org>` (a link, nothing is sent) | |
 
 Works with Pocket CRM 0.1.0 (link route `GET /lookup` = crm:read; `email=` matches exactly, any case).
+
+## Pocket Tables — `tables:read`
+
+| What | Request | Used from the answer |
+|---|---|---|
+| Rows about the person | `GET /api/v1/lookup?contact=<card id>&name=<full name>&email=<first email>`, then `?email=<email>` for each further email (up to 5) | `{items: [Row]}`: `id`, `title`, `table`, `base`, `field` (the field that matched: an email field, a contact field with this card picked, or a text field holding the name) — deduplicated by `id`, at most 30 |
+| Link to a row | `<tables>/r/<id>` (the Tables address, else the row's `url`) | |
+
+Works with Pocket Tables 0.1.0 (link route `GET /lookup` = tables:read; `email=` and `name=` match exactly, any case;
+`contact=` is the Contacts card id a contact field keeps).
 
 ## Other apps using Contacts
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +19,8 @@ import (
 // meetings with them in Pocket Calendar (an email of theirs is a guest),
 // notes that link to their page in Pocket Notes, open tasks that link to it
 // in Pocket Tasks, answers they sent to the person's forms in Pocket Forms,
-// deals with them or their company in Pocket CRM.
+// deals with them or their company in Pocket CRM, the rows about them in
+// Pocket Tables.
 // Each section stands alone: an app that is off, not linked or down never
 // fails the others. docs/integrations.md lists what each app answers.
 
@@ -457,6 +459,67 @@ func (s *Server) relatedCRM(ctx context.Context, sb *sibling, sec *RelatedSectio
 	return nil
 }
 
+// relatedTables: the rows about the contact in the person's tables in Pocket
+// Tables (GET /api/v1/lookup?email=&contact=&name=): an email of theirs in an
+// email field, this card picked in a contact field, or their name. The first
+// ask carries the card id and the name; each further email is asked alone.
+// Rows come in the order Tables gives them, each once, at most 30.
+func (s *Server) relatedTables(ctx context.Context, sb *sibling, sec *RelatedSection, ct vcard.Contact, cardID int64) error {
+	var emails []string
+	for i, f := range ct.Emails {
+		if i == 5 {
+			break
+		}
+		if e := strings.ToLower(strings.TrimSpace(f.Value)); e != "" {
+			emails = append(emails, e)
+		}
+	}
+	first := url.Values{"contact": {strconv.FormatInt(cardID, 10)}}
+	if n := strings.TrimSpace(ct.FN); n != "" {
+		first.Set("name", n)
+	}
+	asks := []url.Values{first}
+	for i, e := range emails {
+		if i == 0 {
+			first.Set("email", e)
+			continue
+		}
+		asks = append(asks, url.Values{"email": {e}})
+	}
+	seen := map[string]bool{}
+	for _, v := range asks {
+		var out struct {
+			Items []struct {
+				ID    flexID `json:"id"`
+				Title string `json:"title"`
+				Table string `json:"table"`
+				Base  string `json:"base"`
+				Field string `json:"field"`
+				URL   string `json:"url"`
+			} `json:"items"`
+		}
+		if err := sb.call(ctx, http.MethodGet, "/api/v1/lookup?"+v.Encode(), nil, &out); err != nil {
+			return err
+		}
+		for _, x := range out.Items {
+			if x.ID == "" || seen[string(x.ID)] {
+				continue
+			}
+			seen[string(x.ID)] = true
+			link := x.URL
+			if sb.public != "" {
+				link = sb.public + "/r/" + string(x.ID)
+			}
+			sec.Items = append(sec.Items, map[string]any{"id": string(x.ID), "title": x.Title, "table": x.Table, "base": x.Base,
+				"field": x.Field, "url": link})
+		}
+	}
+	if len(sec.Items) > 30 {
+		sec.Items = sec.Items[:30]
+	}
+	return nil
+}
+
 func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
@@ -493,6 +556,9 @@ func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 		},
 		"crm": func(c context.Context, sb *sibling, sec *RelatedSection) error {
 			return s.relatedCRM(c, sb, sec, ct)
+		},
+		"tables": func(c context.Context, sb *sibling, sec *RelatedSection) error {
+			return s.relatedTables(c, sb, sec, ct, e.ID)
 		},
 	} {
 		wg.Add(1)

@@ -1,9 +1,9 @@
-// "Connected": the meetings, notes, to-dos, form answers and deals about this person in the other Pocket apps.
+// "Connected": the meetings, notes, to-dos, form answers, deals and table rows about this person in the other Pocket apps.
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { displayName } from '../lib/contacts'
-import type { Contact, Related, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedProjectItem, RelatedSection, RelatedTask } from '../lib/types'
+import type { Contact, Related, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedProjectItem, RelatedRow, RelatedSection, RelatedTask } from '../lib/types'
 import { Icon } from './icons'
 import { errMsg, Segmented, Spinner, useToast } from './ui'
 
@@ -29,6 +29,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
         <ProjectsSection s={data ? data.projects : undefined} loading={!data} name={name} />
         <FormsSection s={data ? data.forms : undefined} loading={!data} name={name} />
         <CRMSection s={data ? data.crm : undefined} loading={!data} name={name} />
+        <TablesSection s={data ? data.tables : undefined} loading={!data} name={name} />
         <TasksSection s={data ? data.tasks : undefined} loading={!data} contact={contact} name={name} onAdd={t => upd({ tasks: { ...(data?.tasks || { status: 'ok', detail: '' }), items: [...(data?.tasks?.items || []), t] } })} />
       </>}
     </aside>
@@ -213,6 +214,24 @@ function CRMSection({ s, loading, name }: { s?: RelatedSection<RelatedDeal>; loa
         ))}
       </ul>}
       {closed.length > 3 && <button type="button" className="rel-more" onClick={() => setShowClosed(p => !p)}><Icon name={showClosed ? 'chevron-up' : 'chevron-down'} size={12} />{showClosed ? 'Fewer' : `${closed.length - 3} more won or lost`}</button>}
+    </Shell>
+  )
+}
+
+function TablesSection({ s, loading, name }: { s?: RelatedSection<RelatedRow>; loading: boolean; name: string }) {
+  const [showAll, setShowAll] = useState(false)
+  const items = s?.items || []
+  return (
+    <Shell icon="grid" title="In your tables" s={s} loading={loading} empty={`No rows about ${name} in your tables yet.`}>
+      <ul className="rel-list">
+        {(showAll ? items : items.slice(0, 8)).map(r => (
+          <li key={r.id}><a href={r.url} target="_blank" rel="noreferrer" className="rel-item" title="Open the row in Pocket Tables">
+            <span className="rel-item-title">{r.title || 'Row'}</span>
+            <span className="rel-item-sub">{[r.base && r.base !== r.table ? `${r.table} in ${r.base}` : r.table, r.field ? `by ${r.field}` : ''].filter(Boolean).join(' · ')}</span>
+          </a></li>
+        ))}
+      </ul>
+      {items.length > 8 && <button type="button" className="rel-more" onClick={() => setShowAll(p => !p)}><Icon name={showAll ? 'chevron-up' : 'chevron-down'} size={12} />{showAll ? 'Fewer' : `${items.length - 8} more rows`}</button>}
     </Shell>
   )
 }

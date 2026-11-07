@@ -443,7 +443,16 @@ func TestRelatedApps(t *testing.T) {
 			fmt.Fprint(w, `{"items":[{"id":30,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":11,"name":"Marko","email":"marko@example.com","preview":"Old site","status":"done","created_at":"2026-10-01T09:00:00Z"},
 				{"id":31,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":12,"name":"Marko","email":"marko@example.com","preview":"Website for the shop","status":"new","created_at":"2026-11-06T09:12:00.123Z"},
 				{"id":32,"form_id":5,"form_title":"Contact","number":3,"email":"marko@example.com","preview":"buy now","status":"spam","created_at":"2026-11-07T09:00:00Z"}],"total":3,"new":1}`)
-		case "GET /api/v1/lookup": // Pocket CRM
+		case "GET /api/v1/lookup": // Pocket Tables (by card id, name and email) and Pocket CRM
+			if q := r.URL.Query(); q.Has("contact") {
+				if q.Get("contact") != fmt.Sprint(ct.ID) || q.Get("name") != "Marko Petrović" || q.Get("email") != "marko@example.com" {
+					t.Errorf("tables lookup asked for %q", r.URL.RawQuery)
+				}
+				fmt.Fprint(w, `{"items":[{"id":12,"title":"Marko Petrović","table":"Clients","base":"Bakery","field":"Email","url":"https://tables.example/r/12"},
+					{"id":40,"title":"Shop opening","table":"Events","base":"Bakery","field":"Guest","url":"https://tables.example/r/40"},
+					{"id":12,"title":"Marko Petrović","table":"Clients","base":"Bakery","field":"Contact","url":"https://tables.example/r/12"}]}`)
+				return
+			}
 			if q := r.URL.Query(); q.Get("email") != "marko@example.com" || q.Get("company") != "Acme" {
 				t.Errorf("lookup asked for %q", r.URL.RawQuery)
 			}
@@ -466,7 +475,7 @@ func TestRelatedApps(t *testing.T) {
 	}))
 	defer fake.Close()
 	ctx := context.Background()
-	for _, app := range []string{"calendar", "notes", "tasks", "forms", "crm"} {
+	for _, app := range []string{"calendar", "notes", "tasks", "forms", "crm", "tables"} {
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode."+app, "direct")
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.url."+app, fake.URL)
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token."+app, "tok")
@@ -498,6 +507,11 @@ func TestRelatedApps(t *testing.T) {
 		crm.NewURL != fake.URL+"/deals/new?company=Acme&email=marko%40example.com&name=Marko+Petrovi%C4%87" {
 		t.Fatalf("crm: %+v", crm)
 	}
+	tb := rel["tables"]
+	if tb.Status != "ok" || len(tb.Items) != 2 || tb.Items[0]["id"] != "12" || tb.Items[0]["url"] != fake.URL+"/r/12" || tb.Items[0]["table"] != "Clients" ||
+		tb.Items[0]["field"] != "Email" || tb.Items[1]["title"] != "Shop opening" || tb.Items[1]["base"] != "Bakery" {
+		t.Fatalf("tables: %+v", tb)
+	}
 	var item struct {
 		Item map[string]any `json:"item"`
 	}
@@ -512,9 +526,10 @@ func TestRelatedApps(t *testing.T) {
 	}
 	// one app off, one broken: the others still answer
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.notes", "off")
+	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.tables", "off")
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token.tasks", "wrong")
 	alice.json("GET", fmt.Sprintf("/api/v1/contacts/%d/related", ct.ID), nil, 200, &rel)
-	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" || rel["crm"].Status != "ok" {
+	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" || rel["crm"].Status != "ok" || rel["tables"].Status != "off" {
 		t.Fatalf("independent sections: %+v", rel)
 	}
 }
