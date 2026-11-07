@@ -69,6 +69,8 @@
   next step — and *Start a deal* with them.
 - **Pocket Tables**: the rows about someone in your own tables — their email in an email field, their card picked in a
   contact field, or their name — each opening the row.
+- **Pocket Rentals**: where someone rents from you — each lease's place, active or ended, the rent and what they owe
+  now — each opening the lease, plus their tenant page.
 - Birthday reminders through Apprise, ntfy or a webhook, and a subscribable birthday calendar.
 
 ## Run it

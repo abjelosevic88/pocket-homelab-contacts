@@ -1,9 +1,9 @@
-// "Connected": the meetings, notes, to-dos, form answers, deals and table rows about this person in the other Pocket apps.
+// "Connected": the meetings, notes, to-dos, form answers, deals, table rows and leases about this person in the other Pocket apps.
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { displayName } from '../lib/contacts'
-import type { Contact, Related, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedProjectItem, RelatedRow, RelatedSection, RelatedTask } from '../lib/types'
+import type { Contact, Related, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedLease, RelatedProjectItem, RelatedRow, RelatedSection, RelatedTask } from '../lib/types'
 import { Icon } from './icons'
 import { errMsg, Segmented, Spinner, useToast } from './ui'
 
@@ -30,6 +30,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
         <FormsSection s={data ? data.forms : undefined} loading={!data} name={name} />
         <CRMSection s={data ? data.crm : undefined} loading={!data} name={name} />
         <TablesSection s={data ? data.tables : undefined} loading={!data} name={name} />
+        <RentalsSection s={data ? data.rentals : undefined} loading={!data} name={name} />
         <TasksSection s={data ? data.tasks : undefined} loading={!data} contact={contact} name={name} onAdd={t => upd({ tasks: { ...(data?.tasks || { status: 'ok', detail: '' }), items: [...(data?.tasks?.items || []), t] } })} />
       </>}
     </aside>
@@ -232,6 +233,47 @@ function TablesSection({ s, loading, name }: { s?: RelatedSection<RelatedRow>; l
         ))}
       </ul>
       {items.length > 8 && <button type="button" className="rel-more" onClick={() => setShowAll(p => !p)}><Icon name={showAll ? 'chevron-up' : 'chevron-down'} size={12} />{showAll ? 'Fewer' : `${items.length - 8} more rows`}</button>}
+    </Shell>
+  )
+}
+
+function fmtDate(d?: string): string {
+  if (!d) return ''
+  const x = new Date(d.slice(0, 10) + 'T00:00:00')
+  return isNaN(x.getTime()) ? d : x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function RentalsSection({ s, loading, name }: { s?: RelatedSection<RelatedLease>; loading: boolean; name: string }) {
+  const [showEnded, setShowEnded] = useState(false)
+  const items = s?.items || []
+  const current = items.filter(l => l.status !== 'ended')
+  const ended = items.filter(l => l.status === 'ended')
+  const owes = (l: RelatedLease) => l.balance > 0 ? <span className="rel-late">· owes {fmtMoney(l.balance, l.currency)}</span> : null
+  return (
+    <Shell icon="key" title="Renting" s={s} loading={loading} empty={s?.detail ? cap(s.detail) + '.' : `${name} doesn't rent from you.`}
+      action={s?.page_url ? <a className="btn ghost xs rel-add" href={s.page_url} target="_blank" rel="noreferrer" title="Their tenant page in Pocket Rentals"><Icon name="external" size={13} />Tenant</a> : undefined}>
+      <ul className="rel-list">
+        {current.map(l => (
+          <li key={l.id}><a href={l.url} target="_blank" rel="noreferrer" className="rel-item" title="Open the lease in Pocket Rentals">
+            <span className="rel-item-title">{l.place || 'Lease'}</span>
+            <span className="rel-item-sub rel-deal-line">
+              <span>{l.status === 'draft' ? 'Draft' : 'Active'}</span>
+              {l.rent > 0 && <span>· {fmtMoney(l.rent, l.currency)} rent</span>}
+              {owes(l)}
+            </span>
+            {(l.start_date || l.end_date) && <span className="rel-item-sub">{l.end_date ? `${fmtDate(l.start_date)} – ${fmtDate(l.end_date)}` : `Since ${fmtDate(l.start_date)}`}</span>}
+          </a></li>
+        ))}
+        {current.length === 0 && <li className="rel-msg">No lease running now.</li>}
+      </ul>
+      {ended.length > 0 && <ul className="rel-list past">
+        {(showEnded ? ended : ended.slice(0, 3)).map(l => (
+          <li key={l.id}><a href={l.url} target="_blank" rel="noreferrer" className="rel-item" title="Open the lease in Pocket Rentals">
+            <span className="rel-item-sub">Ended{l.end_date ? ` ${fmtDate(l.end_date)}` : ''} · {l.place || 'Lease'}{l.rent > 0 ? ` · ${fmtMoney(l.rent, l.currency)} rent` : ''} {owes(l)}</span>
+          </a></li>
+        ))}
+      </ul>}
+      {ended.length > 3 && <button type="button" className="rel-more" onClick={() => setShowEnded(p => !p)}><Icon name={showEnded ? 'chevron-up' : 'chevron-down'} size={12} />{showEnded ? 'Fewer' : `${ended.length - 3} more ended`}</button>}
     </Shell>
   )
 }

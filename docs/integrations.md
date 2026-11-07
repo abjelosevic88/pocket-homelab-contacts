@@ -1,7 +1,7 @@
 # Pocket Contacts and the other Pocket apps
 
 A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects, Pocket Forms,
-Pocket CRM and Pocket Tables
+Pocket CRM, Pocket Tables and Pocket Rentals
 (`GET /api/v1/contacts/{id}/related`, internal/server/related.go). Contacts reaches each app **as the person**:
 through a Pocket Core app link (`pcx_` token, scopes below) or a direct address + API token pasted in
 Settings → Integrations. The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
@@ -71,6 +71,15 @@ Works with Pocket CRM 0.1.0 (link route `GET /lookup` = crm:read; `email=` match
 
 Works with Pocket Tables 0.1.0 (link route `GET /lookup` = tables:read; `email=` and `name=` match exactly, any case;
 `contact=` is the Contacts card id a contact field keeps).
+
+## Pocket Rentals — `rentals:read`
+
+| What | Request | Used from the answer |
+|---|---|---|
+| Where the person rents from you ("Renting") | `GET /api/v1/lookup?email=<email>` for each email (up to 5) | `{tenant, leases: [Lease], url}`: `id`, `place`, `status` (active, draft, ended), `start_date`, `end_date`, `rent` and `balance` (cents; balance > 0 owed now, < 0 paid ahead), `currency` — deduplicated by `id`, active first, at most 30 |
+| Link to a lease / the tenant | `<rentals>/leases/<id>`, `<rentals>/tenants/<tenant id>` (the Rentals address, else the answer's `url`s) | |
+
+Works with Pocket Rentals 0.1.0 (link route `GET /lookup` = rentals:read; `email=` matches the tenant's email exactly, any case).
 
 ## Other apps using Contacts
 

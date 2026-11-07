@@ -443,7 +443,16 @@ func TestRelatedApps(t *testing.T) {
 			fmt.Fprint(w, `{"items":[{"id":30,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":11,"name":"Marko","email":"marko@example.com","preview":"Old site","status":"done","created_at":"2026-10-01T09:00:00Z"},
 				{"id":31,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":12,"name":"Marko","email":"marko@example.com","preview":"Website for the shop","status":"new","created_at":"2026-11-06T09:12:00.123Z"},
 				{"id":32,"form_id":5,"form_title":"Contact","number":3,"email":"marko@example.com","preview":"buy now","status":"spam","created_at":"2026-11-07T09:00:00Z"}],"total":3,"new":1}`)
-		case "GET /api/v1/lookup": // Pocket Tables (by card id, name and email) and Pocket CRM
+		case "GET /api/v1/lookup": // Pocket Tables (by card id, name and email), Pocket Rentals (email alone) and Pocket CRM
+			if q := r.URL.Query(); !q.Has("contact") && !q.Has("company") {
+				if q.Get("email") != "marko@example.com" {
+					t.Errorf("rentals lookup asked for %q", r.URL.RawQuery)
+				}
+				fmt.Fprint(w, `{"tenant":{"id":3,"name":"Marko Petrović","email":"marko@example.com"},"url":"https://rentals.example/tenants/3",
+					"leases":[{"id":1,"place":"Flat 1 · Elm St 4","status":"ended","start_date":"2023-01-01","end_date":"2024-12-31","rent":60000,"currency":"EUR","balance":0,"url":"https://rentals.example/leases/1"},
+					{"id":2,"place":"Flat 3 · Elm St 4","status":"active","start_date":"2025-01-01","end_date":"","rent":65000,"currency":"EUR","balance":12050,"url":"https://rentals.example/leases/2"}]}`)
+				return
+			}
 			if q := r.URL.Query(); q.Has("contact") {
 				if q.Get("contact") != fmt.Sprint(ct.ID) || q.Get("name") != "Marko Petrović" || q.Get("email") != "marko@example.com" {
 					t.Errorf("tables lookup asked for %q", r.URL.RawQuery)
@@ -475,7 +484,7 @@ func TestRelatedApps(t *testing.T) {
 	}))
 	defer fake.Close()
 	ctx := context.Background()
-	for _, app := range []string{"calendar", "notes", "tasks", "forms", "crm", "tables"} {
+	for _, app := range []string{"calendar", "notes", "tasks", "forms", "crm", "tables", "rentals"} {
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode."+app, "direct")
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.url."+app, fake.URL)
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token."+app, "tok")
@@ -512,6 +521,12 @@ func TestRelatedApps(t *testing.T) {
 		tb.Items[0]["field"] != "Email" || tb.Items[1]["title"] != "Shop opening" || tb.Items[1]["base"] != "Bakery" {
 		t.Fatalf("tables: %+v", tb)
 	}
+	rt := rel["rentals"]
+	if rt.Status != "ok" || len(rt.Items) != 2 || rt.Items[0]["id"] != "2" || rt.Items[0]["status"] != "active" || rt.Items[0]["rent"] != 650.0 ||
+		rt.Items[0]["balance"] != 120.5 || rt.Items[0]["url"] != fake.URL+"/leases/2" || rt.Items[0]["place"] != "Flat 3 · Elm St 4" ||
+		rt.Items[1]["status"] != "ended" || rt.Items[1]["end_date"] != "2024-12-31" || rt.PageURL != fake.URL+"/tenants/3" {
+		t.Fatalf("rentals: %+v", rt)
+	}
 	var item struct {
 		Item map[string]any `json:"item"`
 	}
@@ -527,9 +542,11 @@ func TestRelatedApps(t *testing.T) {
 	// one app off, one broken: the others still answer
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.notes", "off")
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.tables", "off")
+	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.rentals", "off")
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token.tasks", "wrong")
 	alice.json("GET", fmt.Sprintf("/api/v1/contacts/%d/related", ct.ID), nil, 200, &rel)
-	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" || rel["crm"].Status != "ok" || rel["tables"].Status != "off" {
+	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" || rel["crm"].Status != "ok" || rel["tables"].Status != "off" ||
+		rel["rentals"].Status != "off" {
 		t.Fatalf("independent sections: %+v", rel)
 	}
 }

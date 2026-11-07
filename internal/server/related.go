@@ -20,7 +20,7 @@ import (
 // notes that link to their page in Pocket Notes, open tasks that link to it
 // in Pocket Tasks, answers they sent to the person's forms in Pocket Forms,
 // deals with them or their company in Pocket CRM, the rows about them in
-// Pocket Tables.
+// Pocket Tables, the places they rent from the person in Pocket Rentals.
 // Each section stands alone: an app that is off, not linked or down never
 // fails the others. docs/integrations.md lists what each app answers.
 
@@ -28,11 +28,12 @@ const relatedTimeout = 8 * time.Second
 
 // RelatedSection is one app's part of GET /contacts/{id}/related.
 type RelatedSection struct {
-	Status string           `json:"status"` // ok | off | error
-	Detail string           `json:"detail"`
-	AppURL string           `json:"app_url"`
-	NewURL string           `json:"new_url,omitempty"`
-	Items  []map[string]any `json:"items"`
+	Status  string           `json:"status"` // ok | off | error
+	Detail  string           `json:"detail"`
+	AppURL  string           `json:"app_url"`
+	NewURL  string           `json:"new_url,omitempty"`
+	PageURL string           `json:"page_url,omitempty"` // the person's own page in that app (Rentals: their tenant page)
+	Items   []map[string]any `json:"items"`
 }
 
 // flexID reads an id another app sends as a number or a string.
@@ -520,6 +521,94 @@ func (s *Server) relatedTables(ctx context.Context, sb *sibling, sec *RelatedSec
 	return nil
 }
 
+// relatedRentals: the leases the contact has with the person in Pocket
+// Rentals (GET /api/v1/lookup?email=, one ask per email, up to 5): the place,
+// active, draft or ended, the rent and what they owe now (amounts come in
+// cents; balance < 0 is paid ahead). Active leases first, then drafts, then
+// ended ones, latest first; each lease once.
+func (s *Server) relatedRentals(ctx context.Context, sb *sibling, sec *RelatedSection, ct vcard.Contact) error {
+	var emails []string
+	for _, f := range ct.Emails {
+		if len(emails) == 5 {
+			break
+		}
+		if e := strings.ToLower(strings.TrimSpace(f.Value)); e != "" {
+			emails = append(emails, e)
+		}
+	}
+	if len(emails) == 0 {
+		sec.Detail = "add an email address to see where they rent from you"
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, e := range emails {
+		var out struct {
+			Tenant *struct {
+				ID flexID `json:"id"`
+			} `json:"tenant"`
+			Leases []struct {
+				ID       flexID `json:"id"`
+				Place    string `json:"place"`
+				Status   string `json:"status"`
+				Start    string `json:"start_date"`
+				End      string `json:"end_date"`
+				Rent     int64  `json:"rent"`
+				Currency string `json:"currency"`
+				Balance  int64  `json:"balance"`
+				URL      string `json:"url"`
+			} `json:"leases"`
+			URL string `json:"url"`
+		}
+		if err := sb.call(ctx, http.MethodGet, "/api/v1/lookup?"+url.Values{"email": {e}}.Encode(), nil, &out); err != nil {
+			return err
+		}
+		if out.Tenant != nil && sec.PageURL == "" {
+			sec.PageURL = out.URL
+			if sb.public != "" && out.Tenant.ID != "" {
+				sec.PageURL = sb.public + "/tenants/" + string(out.Tenant.ID)
+			}
+		}
+		for _, l := range out.Leases {
+			if l.ID == "" || seen[string(l.ID)] {
+				continue
+			}
+			seen[string(l.ID)] = true
+			link := l.URL
+			if sb.public != "" {
+				link = sb.public + "/leases/" + string(l.ID)
+			}
+			status := l.Status
+			if status == "" {
+				status = "active"
+			}
+			sec.Items = append(sec.Items, map[string]any{"id": string(l.ID), "place": l.Place, "status": status,
+				"start_date": l.Start, "end_date": l.End, "rent": float64(l.Rent) / 100, "currency": l.Currency,
+				"balance": float64(l.Balance) / 100, "url": link})
+		}
+	}
+	rank := map[string]int{"active": 0, "draft": 1}
+	str := func(m map[string]any, k string) string { v, _ := m[k].(string); return v }
+	sort.SliceStable(sec.Items, func(i, j int) bool {
+		a, b := sec.Items[i], sec.Items[j]
+		ra, ok := rank[str(a, "status")]
+		if !ok {
+			ra = 2
+		}
+		rb, ok := rank[str(b, "status")]
+		if !ok {
+			rb = 2
+		}
+		if ra != rb {
+			return ra < rb
+		}
+		return firstNonEmpty(str(a, "end_date"), str(a, "start_date")) > firstNonEmpty(str(b, "end_date"), str(b, "start_date"))
+	})
+	if len(sec.Items) > 30 {
+		sec.Items = sec.Items[:30]
+	}
+	return nil
+}
+
 func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
@@ -559,6 +648,9 @@ func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 		},
 		"tables": func(c context.Context, sb *sibling, sec *RelatedSection) error {
 			return s.relatedTables(c, sb, sec, ct, e.ID)
+		},
+		"rentals": func(c context.Context, sb *sibling, sec *RelatedSection) error {
+			return s.relatedRentals(c, sb, sec, ct)
 		},
 	} {
 		wg.Add(1)

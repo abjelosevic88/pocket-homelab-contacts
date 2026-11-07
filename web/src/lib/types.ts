@@ -160,7 +160,7 @@ export interface ContactList { contacts: Summary[] | null; total: number }
 export interface RelatedEvent { id: string; title: string; start: string; end?: string; all_day: boolean; url: string; past: boolean }
 export interface RelatedNote { id: string; title: string; snippet?: string; updated_at?: string; url: string }
 export interface RelatedTask { id: string; title: string; due?: string; done: boolean; url: string }
-export interface RelatedSection<T> { status: 'ok' | 'off' | 'error'; detail: string; app_url?: string; new_url?: string; items: T[] | null }
+export interface RelatedSection<T> { status: 'ok' | 'off' | 'error'; detail: string; app_url?: string; new_url?: string; page_url?: string; items: T[] | null }
 export interface Related {
   calendar?: RelatedSection<RelatedEvent>
   notes?: RelatedSection<RelatedNote>
@@ -169,6 +169,7 @@ export interface Related {
   forms?: RelatedSection<RelatedFormAnswer>
   crm?: RelatedSection<RelatedDeal>
   tables?: RelatedSection<RelatedRow>
+  rentals?: RelatedSection<RelatedLease>
 }
 
 export interface Activity { id: number; addressbook_id: number | null; contact_id: number | null; action: string; summary: string; detail: string; created_at: string }
@@ -242,3 +243,5 @@ export interface RelatedFormAnswer { id: string; form_id: string; title: string;
 export interface RelatedDeal { id: string; title: string; stage_name: string; stage_color?: string; status: 'open' | 'won' | 'lost' | string; amount?: number; currency?: string; next_action?: string; next_due?: string; overdue?: boolean; company?: string; closed_at?: string; url: string }
 /** A row about the person in one of your tables in Pocket Tables; field is the one that matched (an email, the contact picked, the name). */
 export interface RelatedRow { id: string; title: string; table: string; base?: string; field?: string; url: string }
+/** A lease the person has with you in Pocket Rentals; rent and balance in currency units (balance > 0 = owed now, < 0 = paid ahead). */
+export interface RelatedLease { id: string; place: string; status: 'active' | 'draft' | 'ended' | string; start_date?: string; end_date?: string; rent: number; currency?: string; balance: number; url: string }
