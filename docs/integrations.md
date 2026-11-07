@@ -1,6 +1,7 @@
 # Pocket Contacts and the other Pocket apps
 
-A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects and Pocket Forms
+A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects, Pocket Forms
+and Pocket CRM
 (`GET /api/v1/contacts/{id}/related`, internal/server/related.go). Contacts reaches each app **as the person**:
 through a Pocket Core app link (`pcx_` token, scopes below) or a direct address + API token pasted in
 Settings → Integrations. The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
@@ -50,6 +51,16 @@ ignore `url=` and answer up to 500 open tasks; the local `mentionsPage` guard ke
 | Link to an answer | `<forms>/answers/<id>` | |
 
 Works with Pocket Forms 0.1.0 (link route `GET /responses` = forms:read; `email=` matches exactly, any case).
+
+## Pocket CRM — `crm:read`
+
+| What | Request | Used from the answer |
+|---|---|---|
+| Deals with the person | `GET /api/v1/lookup?email=<email>` for each email of the contact (up to 5); the first ask also carries `&company=<org>` for a company card (its name) or a card with an organisation; a card with no email asks by `company=` alone | `{deals: [Deal], url}`: `id`, `title`, `stage_name`, `stage_color`, `status` (open/won/lost), `amount`, `currency`, `next_action`, `next_due`, `overdue`, `company`, `closed_at`, `updated_at` — deduplicated by `id`, open first (soonest next step first), then won/lost newest first, at most 30 |
+| Link to a deal | `<url>/deals/<id>` (`url` from the answer, else the CRM address) | |
+| Start a deal | `<crm>/deals/new?name=<name>&email=<first email>&company=<org>` (a link, nothing is sent) | |
+
+Works with Pocket CRM 0.1.0 (link route `GET /lookup` = crm:read; `email=` matches exactly, any case).
 
 ## Other apps using Contacts
 

@@ -1,9 +1,9 @@
-// "Connected": the meetings, notes, to-dos and form answers about this person in the other Pocket apps.
+// "Connected": the meetings, notes, to-dos, form answers and deals about this person in the other Pocket apps.
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { displayName } from '../lib/contacts'
-import type { Contact, Related, RelatedEvent, RelatedFormAnswer, RelatedProjectItem, RelatedSection, RelatedTask } from '../lib/types'
+import type { Contact, Related, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedProjectItem, RelatedSection, RelatedTask } from '../lib/types'
 import { Icon } from './icons'
 import { errMsg, Segmented, Spinner, useToast } from './ui'
 
@@ -28,6 +28,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
         <NotesSection s={data ? data.notes : undefined} loading={!data} name={name} />
         <ProjectsSection s={data ? data.projects : undefined} loading={!data} name={name} />
         <FormsSection s={data ? data.forms : undefined} loading={!data} name={name} />
+        <CRMSection s={data ? data.crm : undefined} loading={!data} name={name} />
         <TasksSection s={data ? data.tasks : undefined} loading={!data} contact={contact} name={name} onAdd={t => upd({ tasks: { ...(data?.tasks || { status: 'ok', detail: '' }), items: [...(data?.tasks?.items || []), t] } })} />
       </>}
     </aside>
@@ -173,6 +174,45 @@ function FormsSection({ s, loading, name }: { s?: RelatedSection<RelatedFormAnsw
           </a></li>
         ))}
       </ul>
+    </Shell>
+  )
+}
+
+function fmtMoney(amount: number, currency?: string): string {
+  try {
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'EUR', maximumFractionDigits: Number.isInteger(amount) ? 0 : 2 }).format(amount)
+  } catch { return `${amount.toLocaleString('en-GB')} ${currency || ''}`.trim() }
+}
+
+function CRMSection({ s, loading, name }: { s?: RelatedSection<RelatedDeal>; loading: boolean; name: string }) {
+  const [showClosed, setShowClosed] = useState(false)
+  const items = s?.items || []
+  const open_ = items.filter(d => d.status === 'open')
+  const closed = items.filter(d => d.status !== 'open')
+  return (
+    <Shell icon="activity" title="Pocket CRM" s={s} loading={loading} empty={s?.detail ? cap(s.detail) + '.' : `No deals with ${name} yet.`}
+      action={s?.new_url ? <a className="btn ghost xs rel-add" href={s.new_url} target="_blank" rel="noreferrer"><Icon name="plus" size={13} />Start a deal</a> : undefined}>
+      <ul className="rel-list">
+        {open_.map(d => (
+          <li key={d.id}><a href={d.url} target="_blank" rel="noreferrer" className="rel-item">
+            <span className="rel-item-title">{d.title || 'Deal'}</span>
+            <span className="rel-item-sub rel-deal-line">
+              <span className="rel-stage"><span className="rel-stage-dot" style={d.stage_color ? { background: d.stage_color } : undefined} />{d.stage_name || 'Open'}</span>
+              {typeof d.amount === 'number' && d.amount > 0 && <span>· {fmtMoney(d.amount, d.currency)}</span>}
+            </span>
+            {(d.next_action || d.next_due) && <span className={`rel-item-sub ${d.overdue ? 'rel-late' : ''}`}>{[d.next_action || 'Next step', d.next_due ? fmtDue(d.next_due) + (d.overdue ? ' (late)' : '') : ''].filter(Boolean).join(' · ')}</span>}
+          </a></li>
+        ))}
+        {open_.length === 0 && <li className="rel-msg">No open deals.</li>}
+      </ul>
+      {closed.length > 0 && <ul className="rel-list past">
+        {(showClosed ? closed : closed.slice(0, 3)).map(d => (
+          <li key={d.id}><a href={d.url} target="_blank" rel="noreferrer" className="rel-item">
+            <span className="rel-item-sub">{d.status === 'won' ? 'Won' : 'Lost'} · {d.title || 'Deal'}{typeof d.amount === 'number' && d.amount > 0 ? ` · ${fmtMoney(d.amount, d.currency)}` : ''}</span>
+          </a></li>
+        ))}
+      </ul>}
+      {closed.length > 3 && <button type="button" className="rel-more" onClick={() => setShowClosed(p => !p)}><Icon name={showClosed ? 'chevron-up' : 'chevron-down'} size={12} />{showClosed ? 'Fewer' : `${closed.length - 3} more won or lost`}</button>}
     </Shell>
   )
 }

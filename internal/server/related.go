@@ -17,7 +17,8 @@ import (
 // A contact in the other Pocket apps, reached as the person (apps.go):
 // meetings with them in Pocket Calendar (an email of theirs is a guest),
 // notes that link to their page in Pocket Notes, open tasks that link to it
-// in Pocket Tasks, answers they sent to the person's forms in Pocket Forms.
+// in Pocket Tasks, answers they sent to the person's forms in Pocket Forms,
+// deals with them or their company in Pocket CRM.
 // Each section stands alone: an app that is off, not linked or down never
 // fails the others. docs/integrations.md lists what each app answers.
 
@@ -339,6 +340,123 @@ func (s *Server) relatedForms(ctx context.Context, sb *sibling, sec *RelatedSect
 	return nil
 }
 
+// relatedCRM: the deals with the contact in Pocket CRM, matched by each of
+// their emails and, for a company card or a card with an organisation, by
+// that company (GET /api/v1/lookup?email=&company=). Open deals first (the
+// soonest next step first), then won and lost ones, newest first.
+func (s *Server) relatedCRM(ctx context.Context, sb *sibling, sec *RelatedSection, ct vcard.Contact) error {
+	company := strings.TrimSpace(ct.Org)
+	if ct.Kind == "org" && company == "" {
+		company = strings.TrimSpace(ct.FN)
+	}
+	var emails []string
+	for i, f := range ct.Emails {
+		if i == 5 {
+			break
+		}
+		if e := strings.ToLower(strings.TrimSpace(f.Value)); e != "" {
+			emails = append(emails, e)
+		}
+	}
+	name := ""
+	if ct.Kind != "org" {
+		name = strings.TrimSpace(ct.FN)
+	}
+	q := url.Values{}
+	for k, v := range map[string]string{"name": name, "company": company} {
+		if v != "" {
+			q.Set(k, v)
+		}
+	}
+	if len(emails) > 0 {
+		q.Set("email", emails[0])
+	}
+	sec.NewURL = sb.public + "/deals/new"
+	if len(q) > 0 {
+		sec.NewURL += "?" + q.Encode()
+	}
+	if len(emails) == 0 && company == "" {
+		sec.Detail = "add an email address or a company to see the deals with them"
+		return nil
+	}
+	asks := []url.Values{}
+	for i, e := range emails {
+		v := url.Values{"email": {e}}
+		if i == 0 && company != "" {
+			v.Set("company", company)
+		}
+		asks = append(asks, v)
+	}
+	if len(asks) == 0 {
+		asks = append(asks, url.Values{"company": {company}})
+	}
+	seen := map[string]bool{}
+	for _, v := range asks {
+		var out struct {
+			Deals []struct {
+				ID         flexID   `json:"id"`
+				Title      string   `json:"title"`
+				StageName  string   `json:"stage_name"`
+				StageColor string   `json:"stage_color"`
+				Status     string   `json:"status"`
+				Amount     *float64 `json:"amount"`
+				Currency   string   `json:"currency"`
+				NextAction string   `json:"next_action"`
+				NextDue    string   `json:"next_due"`
+				Overdue    bool     `json:"overdue"`
+				Company    string   `json:"company"`
+				ClosedAt   string   `json:"closed_at"`
+				UpdatedAt  string   `json:"updated_at"`
+			} `json:"deals"`
+			URL string `json:"url"`
+		}
+		if err := sb.call(ctx, http.MethodGet, "/api/v1/lookup?"+v.Encode(), nil, &out); err != nil {
+			return err
+		}
+		base := strings.TrimRight(out.URL, "/")
+		if base == "" {
+			base = sb.public
+		}
+		for _, d := range out.Deals {
+			if seen[string(d.ID)] {
+				continue
+			}
+			seen[string(d.ID)] = true
+			status := d.Status
+			if status == "" {
+				status = "open"
+			}
+			it := map[string]any{"id": string(d.ID), "title": d.Title, "stage_name": d.StageName, "stage_color": d.StageColor,
+				"status": status, "currency": d.Currency, "next_action": d.NextAction, "next_due": d.NextDue,
+				"overdue": d.Overdue, "company": d.Company, "closed_at": d.ClosedAt, "updated_at": d.UpdatedAt,
+				"url": base + "/deals/" + string(d.ID)}
+			if d.Amount != nil {
+				it["amount"] = *d.Amount
+			}
+			sec.Items = append(sec.Items, it)
+		}
+	}
+	str := func(m map[string]any, k string) string { v, _ := m[k].(string); return v }
+	sort.SliceStable(sec.Items, func(i, j int) bool {
+		a, b := sec.Items[i], sec.Items[j]
+		if ao, bo := str(a, "status") == "open", str(b, "status") == "open"; ao != bo {
+			return ao
+		}
+		if str(a, "status") == "open" {
+			ad, bd := str(a, "next_due"), str(b, "next_due")
+			if (ad == "") != (bd == "") {
+				return bd == ""
+			}
+			return ad < bd
+		}
+		return firstNonEmpty(str(a, "closed_at"), str(a, "updated_at")) > firstNonEmpty(str(b, "closed_at"), str(b, "updated_at"))
+	})
+	if len(sec.Items) > 30 {
+		sec.Items = sec.Items[:30]
+	}
+	return nil
+}
+
 func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
@@ -372,6 +490,9 @@ func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 		},
 		"forms": func(c context.Context, sb *sibling, sec *RelatedSection) error {
 			return s.relatedForms(c, sb, sec, ct)
+		},
+		"crm": func(c context.Context, sb *sibling, sec *RelatedSection) error {
+			return s.relatedCRM(c, sb, sec, ct)
 		},
 	} {
 		wg.Add(1)

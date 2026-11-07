@@ -167,6 +167,7 @@ export interface Related {
   tasks?: RelatedSection<RelatedTask>
   projects?: RelatedSection<RelatedProjectItem>
   forms?: RelatedSection<RelatedFormAnswer>
+  crm?: RelatedSection<RelatedDeal>
 }
 
 export interface Activity { id: number; addressbook_id: number | null; contact_id: number | null; action: string; summary: string; detail: string; created_at: string }
@@ -237,3 +238,4 @@ export interface SystemInfo {
 
 export interface RelatedProjectItem { id: string; kind: 'project' | 'issue'; title: string; url: string; done: boolean; status?: string; health?: string; target_date?: string; progress?: number; identifier?: string; due?: string }
 export interface RelatedFormAnswer { id: string; form_id: string; title: string; emoji?: string; number?: number; snippet?: string; status: string; created_at: string; url: string }
+export interface RelatedDeal { id: string; title: string; stage_name: string; stage_color?: string; status: 'open' | 'won' | 'lost' | string; amount?: number; currency?: string; next_action?: string; next_due?: string; overdue?: boolean; company?: string; closed_at?: string; url: string }

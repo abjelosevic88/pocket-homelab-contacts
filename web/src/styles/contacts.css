@@ -152,6 +152,10 @@ a.rel-title:hover { color: var(--accent-ink); }
 .rel-item-sub.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .rel-due { font-size: 11.5px; color: var(--muted); font-weight: 550; white-space: nowrap; }
 .rel-due.late { color: var(--danger); }
+.rel-late { color: var(--danger); }
+.rel-deal-line { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.rel-stage { display: inline-flex; align-items: center; gap: 5px; }
+.rel-stage-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
 .rel-more { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; color: var(--muted); font-size: 12px; font-weight: 550; padding: 6px 0 0; cursor: pointer; }
 .rel-more:hover { color: var(--text); }
 .rel-form { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline); }

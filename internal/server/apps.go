@@ -55,6 +55,9 @@ var pocketApps = []PocketApp{
 	{ID: "forms", Name: "Pocket Forms", Slug: "forms", Scopes: []string{"forms:read"},
 		Reason:      "Show the answers a person sent to your forms on their page",
 		Description: "Answers the person sent to your forms (matched by email), newest first."},
+	{ID: "crm", Name: "Pocket CRM", Slug: "crm", Scopes: []string{"crm:read"},
+		Reason:      "Show the deals you have with a person or company on their page",
+		Description: "Deals with the person (matched by email) or their company, open ones first, and \"Start a deal\" with them."},
 }
 
 func pocketApp(id string) (PocketApp, bool) {

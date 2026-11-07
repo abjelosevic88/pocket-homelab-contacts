@@ -412,7 +412,7 @@ func TestDemoData(t *testing.T) {
 func TestRelatedApps(t *testing.T) {
 	s, h := apiServer(t)
 	alice := apiPerson(t, s, h, "alice@example.com", "Alice")
-	ct := alice.create(vcard.Contact{Given: "Marko", Family: "Petrović", Emails: []vcard.Field{{Value: "marko@example.com"}}})
+	ct := alice.create(vcard.Contact{Given: "Marko", Family: "Petrović", Org: "Acme", Emails: []vcard.Field{{Value: "marko@example.com"}}})
 	page := fmt.Sprintf("https://contacts.example/contacts/%d", ct.ID)
 	var posted []map[string]any
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -443,6 +443,13 @@ func TestRelatedApps(t *testing.T) {
 			fmt.Fprint(w, `{"items":[{"id":30,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":11,"name":"Marko","email":"marko@example.com","preview":"Old site","status":"done","created_at":"2026-10-01T09:00:00Z"},
 				{"id":31,"form_id":4,"form_title":"Client brief","form_emoji":"📝","number":12,"name":"Marko","email":"marko@example.com","preview":"Website for the shop","status":"new","created_at":"2026-11-06T09:12:00.123Z"},
 				{"id":32,"form_id":5,"form_title":"Contact","number":3,"email":"marko@example.com","preview":"buy now","status":"spam","created_at":"2026-11-07T09:00:00Z"}],"total":3,"new":1}`)
+		case "GET /api/v1/lookup": // Pocket CRM
+			if q := r.URL.Query(); q.Get("email") != "marko@example.com" || q.Get("company") != "Acme" {
+				t.Errorf("lookup asked for %q", r.URL.RawQuery)
+			}
+			fmt.Fprintf(w, `{"deals":[{"id":5,"title":"Old site","stage_name":"Won","status":"won","amount":900,"currency":"EUR","closed_at":"2026-03-01T10:00:00Z"},
+				{"id":7,"title":"Acme — new shop","stage_name":"Proposal","stage_color":"#e8590c","status":"open","amount":4500,"currency":"EUR","next_action":"Send the offer","next_due":"2026-11-10","overdue":false},
+				{"id":8,"title":"Acme — logo","stage_name":"Lead","status":"open","currency":"EUR","next_action":"Call Marko","next_due":"2026-11-01","overdue":true}],"url":%q}`, "https://crm.example")
 		case "POST /api/v1/tasks", "POST /api/v1/events":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -459,7 +466,7 @@ func TestRelatedApps(t *testing.T) {
 	}))
 	defer fake.Close()
 	ctx := context.Background()
-	for _, app := range []string{"calendar", "notes", "tasks", "forms"} {
+	for _, app := range []string{"calendar", "notes", "tasks", "forms", "crm"} {
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode."+app, "direct")
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.url."+app, fake.URL)
 		_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token."+app, "tok")
@@ -485,6 +492,12 @@ func TestRelatedApps(t *testing.T) {
 		forms.Items[0]["title"] != "Client brief" || forms.Items[0]["snippet"] != "Website for the shop" || forms.Items[1]["id"] != "30" {
 		t.Fatalf("forms: %+v", forms)
 	}
+	crm := rel["crm"]
+	if crm.Status != "ok" || len(crm.Items) != 3 || crm.Items[0]["id"] != "8" || crm.Items[0]["overdue"] != true || crm.Items[1]["id"] != "7" ||
+		crm.Items[1]["amount"] != 4500.0 || crm.Items[1]["url"] != "https://crm.example/deals/7" || crm.Items[2]["status"] != "won" ||
+		crm.NewURL != fake.URL+"/deals/new?company=Acme&email=marko%40example.com&name=Marko+Petrovi%C4%87" {
+		t.Fatalf("crm: %+v", crm)
+	}
 	var item struct {
 		Item map[string]any `json:"item"`
 	}
@@ -501,7 +514,7 @@ func TestRelatedApps(t *testing.T) {
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.notes", "off")
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token.tasks", "wrong")
 	alice.json("GET", fmt.Sprintf("/api/v1/contacts/%d/related", ct.ID), nil, 200, &rel)
-	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" {
+	if rel["notes"].Status != "off" || rel["tasks"].Status != "error" || rel["tasks"].Detail == "" || rel["calendar"].Status != "ok" || rel["forms"].Status != "ok" || rel["crm"].Status != "ok" {
 		t.Fatalf("independent sections: %+v", rel)
 	}
 }
