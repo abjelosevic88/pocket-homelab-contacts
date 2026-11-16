@@ -1,7 +1,7 @@
 # Pocket Contacts and the other Pocket apps
 
 A contact's page shows the person in Pocket Calendar, Pocket Notes, Pocket Tasks, Pocket Projects, Pocket Forms,
-Pocket CRM, Pocket Tables and Pocket Rentals
+Pocket CRM, Pocket Tables, Pocket Rentals and Pocket Booking
 (`GET /api/v1/contacts/{id}/related`, internal/server/related.go). Contacts reaches each app **as the person**:
 through a Pocket Core app link (`pcx_` token, scopes below) or a direct address + API token pasted in
 Settings → Integrations. The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
@@ -80,6 +80,19 @@ Works with Pocket Tables 0.1.0 (link route `GET /lookup` = tables:read; `email=`
 | Link to a lease / the tenant | `<rentals>/leases/<id>`, `<rentals>/tenants/<tenant id>` (the Rentals address, else the answer's `url`s) | |
 
 Works with Pocket Rentals 0.1.0 (link route `GET /lookup` = rentals:read; `email=` matches the tenant's email exactly, any case).
+
+## Pocket Booking — `booking:read`, `booking:write`
+
+| What | Request | Used from the answer |
+|---|---|---|
+| The times the person booked with you ("Bookings") | `GET /api/v1/lookup?email=<email>` for each email (up to 5) | `{bookings, upcoming}` (each a Booking): `id`, `title`, `emoji`, `status` (pending, confirmed, declined, cancelled, done, no_show), `start`, `end`, `minutes`, `location_kind`, `location`, `meeting_url` — deduplicated by `id`, upcoming first (soonest first), then past (latest first), at most 30. The next upcoming one that is not cancelled or declined shows on its own as "Next" |
+| Which page a link is for | `GET /api/v1/types` | `{types: [Type]}`: `id`, `title`, `emoji`, `durations`, `url` — only `status: open` pages |
+| "Send a booking link" | `POST /api/v1/invites` `{type_id, name, email, note, days}` (name = the card's name, email = its first email) | `{id, url, type, expires_at}` — the link is shown to copy, or to email from the person's own email app |
+| Link to a booking | `<booking>/bookings/<id>` (the Booking address, else the booking's `url`) | |
+
+Works with Pocket Booking 0.1.0 (link routes `GET /lookup`, `/types` = booking:read; `POST /invites` = booking:write;
+`email=` matches the guest's email exactly, any case). The section asks for a token with both scopes, so switching
+either off in Pocket Core greys the whole section.
 
 ## Other apps using Contacts
 

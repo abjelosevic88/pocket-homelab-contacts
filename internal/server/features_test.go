@@ -539,6 +539,57 @@ func TestRelatedApps(t *testing.T) {
 	if item.Item["id"] != "44" || posted[1]["end"] != "2026-10-22T10:45" || len(att) != 1 {
 		t.Fatalf("event: %+v %+v", item, posted[1])
 	}
+	// Pocket Booking: their bookings by email, the open booking pages, a personal link
+	if rel["booking"].Status != "off" {
+		t.Fatalf("booking without a connection: %+v", rel["booking"])
+	}
+	var invite map[string]any
+	bookingFake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer btok" {
+			w.WriteHeader(401)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/v1/types":
+			fmt.Fprint(w, `{"types":[{"id":3,"title":"Intro call","emoji":"📞","status":"open","durations":[30],"url":"https://booking.example/b/intro"},
+				{"id":4,"title":"Old page","status":"paused"},{"id":5,"title":"Viewing","status":"open","durations":[60]}]}`)
+		case "GET /api/v1/lookup":
+			if r.URL.Query().Get("email") != "marko@example.com" {
+				t.Errorf("booking lookup asked for %q", r.URL.RawQuery)
+			}
+			fmt.Fprint(w, `{"email":"marko@example.com","count":3,
+				"bookings":[{"id":42,"title":"Viewing","status":"confirmed","start":"2099-03-02T10:00:00+01:00","end":"2099-03-02T11:00:00+01:00","minutes":60},
+				{"id":41,"title":"Intro call","emoji":"📞","status":"pending","start":"2099-01-05T09:00:00+01:00","end":"2099-01-05T09:30:00+01:00","minutes":30,"location_kind":"video","meeting_url":"https://meet.jit.si/x"},
+				{"id":30,"title":"Intro call","status":"done","start":"2026-01-05T09:00:00+01:00","end":"2026-01-05T09:30:00+01:00","minutes":30}],
+				"upcoming":[{"id":41,"title":"Intro call","emoji":"📞","status":"pending","start":"2099-01-05T09:00:00+01:00","end":"2099-01-05T09:30:00+01:00","minutes":30,"location_kind":"video","meeting_url":"https://meet.jit.si/x"},
+				{"id":42,"title":"Viewing","status":"confirmed","start":"2099-03-02T10:00:00+01:00","end":"2099-03-02T11:00:00+01:00","minutes":60}]}`)
+		case "POST /api/v1/invites":
+			_ = json.NewDecoder(r.Body).Decode(&invite)
+			w.WriteHeader(201)
+			fmt.Fprint(w, `{"id":9,"url":"https://booking.example/i/tok9","type":"Viewing","type_id":5,"expires_at":"2026-12-01T00:00:00Z"}`)
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer bookingFake.Close()
+	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.booking", "direct")
+	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.url.booking", bookingFake.URL)
+	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.token.booking", "btok")
+	alice.json("GET", fmt.Sprintf("/api/v1/contacts/%d/related", ct.ID), nil, 200, &rel)
+	bk := rel["booking"]
+	if bk.Status != "ok" || len(bk.Items) != 3 || bk.Items[0]["id"] != "41" || bk.Items[0]["past"] != false || bk.Items[0]["status"] != "pending" ||
+		bk.Items[0]["url"] != bookingFake.URL+"/bookings/41" || bk.Items[0]["meeting_url"] != "https://meet.jit.si/x" || bk.Items[1]["id"] != "42" ||
+		bk.Items[2]["id"] != "30" || bk.Items[2]["past"] != true || len(bk.Types) != 2 || bk.Types[0]["id"] != "3" || bk.Types[1]["title"] != "Viewing" {
+		t.Fatalf("booking: %+v", bk)
+	}
+	var link map[string]any
+	alice.json("POST", fmt.Sprintf("/api/v1/contacts/%d/booking-link", ct.ID), map[string]any{"type_id": "5", "days": 7, "note": "The flat on Elm St"}, 201, &link)
+	if link["url"] != "https://booking.example/i/tok9" || link["type"] != "Viewing" || invite["type_id"] != 5.0 || invite["name"] != "Marko Petrović" ||
+		invite["email"] != "marko@example.com" || invite["days"] != 7.0 || invite["note"] != "The flat on Elm St" {
+		t.Fatalf("booking link: %+v sent %+v", link, invite)
+	}
+
 	// one app off, one broken: the others still answer
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.notes", "off")
 	_ = s.store.SetUserSetting(ctx, alice.user.ID, "app.mode.tables", "off")

@@ -158,6 +158,11 @@ a.rel-title:hover { color: var(--accent-ink); }
 .rel-stage-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
 .rel-more { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; color: var(--muted); font-size: 12px; font-weight: 550; padding: 6px 0 0; cursor: pointer; }
 .rel-more:hover { color: var(--text); }
+.rel-next { margin-top: 6px; background: var(--accent-soft, var(--surface-2)); }
+.rel-next:hover { background: var(--accent-soft, var(--surface-2)); filter: brightness(.98); }
+.rel-next-label { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-ink); }
+.rel-wait { color: var(--warning); font-weight: 550; }
+.rel-form .copy-field input { height: 32px; }
 .rel-form { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline); }
 .rel-form input { height: 32px; font-size: 13px; }
 .rel-form .segmented { justify-self: start; }

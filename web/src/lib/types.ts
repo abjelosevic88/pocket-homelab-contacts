@@ -160,7 +160,7 @@ export interface ContactList { contacts: Summary[] | null; total: number }
 export interface RelatedEvent { id: string; title: string; start: string; end?: string; all_day: boolean; url: string; past: boolean }
 export interface RelatedNote { id: string; title: string; snippet?: string; updated_at?: string; url: string }
 export interface RelatedTask { id: string; title: string; due?: string; done: boolean; url: string }
-export interface RelatedSection<T> { status: 'ok' | 'off' | 'error'; detail: string; app_url?: string; new_url?: string; page_url?: string; items: T[] | null }
+export interface RelatedSection<T> { status: 'ok' | 'off' | 'error'; detail: string; app_url?: string; new_url?: string; page_url?: string; items: T[] | null; types?: BookingType[] }
 export interface Related {
   calendar?: RelatedSection<RelatedEvent>
   notes?: RelatedSection<RelatedNote>
@@ -170,6 +170,7 @@ export interface Related {
   crm?: RelatedSection<RelatedDeal>
   tables?: RelatedSection<RelatedRow>
   rentals?: RelatedSection<RelatedLease>
+  booking?: RelatedSection<RelatedBooking>
 }
 
 export interface Activity { id: number; addressbook_id: number | null; contact_id: number | null; action: string; summary: string; detail: string; created_at: string }
@@ -245,3 +246,9 @@ export interface RelatedDeal { id: string; title: string; stage_name: string; st
 export interface RelatedRow { id: string; title: string; table: string; base?: string; field?: string; url: string }
 /** A lease the person has with you in Pocket Rentals; rent and balance in currency units (balance > 0 = owed now, < 0 = paid ahead). */
 export interface RelatedLease { id: string; place: string; status: 'active' | 'draft' | 'ended' | string; start_date?: string; end_date?: string; rent: number; currency?: string; balance: number; url: string }
+/** A time the person booked with you in Pocket Booking; url is your page of the booking. */
+export interface RelatedBooking { id: string; title: string; emoji?: string; status: 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'done' | 'no_show' | string; start: string; end?: string; minutes?: number; location_kind?: string; location?: string; meeting_url?: string; url: string; past: boolean }
+/** One of your open booking pages in Pocket Booking (what a personal booking link is for). */
+export interface BookingType { id: string; title: string; emoji?: string; durations?: number[]; url?: string }
+/** A personal booking link just made in Pocket Booking: it books once, with their name and email filled in. */
+export interface BookingLink { id: string; url: string; type: string; expires_at?: string; email?: string }

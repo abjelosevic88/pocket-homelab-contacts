@@ -64,6 +64,9 @@ var pocketApps = []PocketApp{
 	{ID: "rentals", Name: "Pocket Rentals", Slug: "rentals", Scopes: []string{"rentals:read"},
 		Reason:      "Show where a person rents from you and what they owe, on their card",
 		Description: "The person's leases with you (matched by email): the place, active or ended, the rent and what they owe now."},
+	{ID: "booking", Name: "Pocket Booking", Slug: "booking", Scopes: []string{"booking:read", "booking:write"},
+		Reason:      "Show on a person's card the times they booked with you, and send them a personal booking link with their name and email filled in",
+		Description: "The person's bookings with you (matched by email): the next one first, then recent ones, and \"Send a booking link\" made just for them."},
 }
 
 func pocketApp(id string) (PocketApp, bool) {

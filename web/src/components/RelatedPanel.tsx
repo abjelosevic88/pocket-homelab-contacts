@@ -1,11 +1,12 @@
-// "Connected": the meetings, notes, to-dos, form answers, deals, table rows and leases about this person in the other Pocket apps.
+// "Connected": the meetings, bookings, notes, to-dos, form answers, deals, table rows and leases about this person in the other Pocket apps.
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, V1 } from '../lib/api'
 import { displayName } from '../lib/contacts'
-import type { Contact, Related, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedLease, RelatedProjectItem, RelatedRow, RelatedSection, RelatedTask } from '../lib/types'
+import type { BookingLink, Contact, Related, RelatedBooking, RelatedDeal, RelatedEvent, RelatedFormAnswer, RelatedLease, RelatedProjectItem, RelatedRow, RelatedSection, RelatedTask } from '../lib/types'
 import { Icon } from './icons'
-import { errMsg, Segmented, Spinner, useToast } from './ui'
+import { Select } from './Select'
+import { CopyField, errMsg, Segmented, Spinner, useToast } from './ui'
 
 export function RelatedPanel({ contact }: { contact: Contact }) {
   const [data, setData] = useState<Related | null>(null)
@@ -25,6 +26,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
       <h2 className="related-h"><Icon name="link" size={14} />Connected</h2>
       {err ? <div className="rel-card"><p className="rel-msg danger-text">{err}</p></div> : <>
         <CalendarSection s={data ? data.calendar : undefined} loading={!data} contact={contact} name={name} onAdd={ev => upd({ calendar: { ...(data?.calendar || { status: 'ok', detail: '' }), items: [...(data?.calendar?.items || []), ev] } })} />
+        <BookingSection s={data ? data.booking : undefined} loading={!data} contact={contact} name={name} />
         <NotesSection s={data ? data.notes : undefined} loading={!data} name={name} />
         <ProjectsSection s={data ? data.projects : undefined} loading={!data} name={name} />
         <FormsSection s={data ? data.forms : undefined} loading={!data} name={name} />
@@ -39,7 +41,7 @@ export function RelatedPanel({ contact }: { contact: Contact }) {
 
 const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 
-function Shell<T>({ icon, title, s, loading, children, action, empty }: { icon: string; title: string; s: RelatedSection<T> | undefined; loading: boolean; children: React.ReactNode; action?: React.ReactNode; empty: string }) {
+function Shell<T>({ icon, title, s, loading, children, action, empty, extra }: { icon: string; title: string; s: RelatedSection<T> | undefined; loading: boolean; children: React.ReactNode; action?: React.ReactNode; empty: string; extra?: React.ReactNode }) {
   const off = !loading && (!s || s.status === 'off')
   return (
     <section className={`rel-card ${off ? 'off' : ''}`}>
@@ -54,6 +56,7 @@ function Shell<T>({ icon, title, s, loading, children, action, empty }: { icon: 
         : s!.status === 'error' ? <p className="rel-msg warn"><Icon name="alert" size={13} />{cap(s!.detail) || `${title} didn’t answer.`}</p>
         : !(s!.items || []).length ? <p className="rel-msg">{empty}</p>
         : children}
+      {!loading && s?.status === 'ok' && extra}
     </section>
   )
 }
@@ -275,6 +278,105 @@ function RentalsSection({ s, loading, name }: { s?: RelatedSection<RelatedLease>
       </ul>}
       {ended.length > 3 && <button type="button" className="rel-more" onClick={() => setShowEnded(p => !p)}><Icon name={showEnded ? 'chevron-up' : 'chevron-down'} size={12} />{showEnded ? 'Fewer' : `${ended.length - 3} more ended`}</button>}
     </Shell>
+  )
+}
+
+const BOOKING_STATUS: Record<string, string> = { pending: 'Waits for you to confirm', confirmed: 'Confirmed', declined: 'You said no', cancelled: 'Cancelled', done: 'Happened', no_show: 'They didn’t come' }
+
+function fmtBookingWhen(b: RelatedBooking): string {
+  const d = new Date(b.start)
+  if (isNaN(d.getTime())) return b.start
+  const now = new Date()
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const day = d.toDateString() === now.toDateString() ? 'Today' : d.toDateString() === tomorrow.toDateString() ? 'Tomorrow'
+    : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' })
+  return `${day}, ${time}`
+}
+
+function BookingSection({ s, loading, contact, name }: { s?: RelatedSection<RelatedBooking>; loading: boolean; contact: Contact; name: string }) {
+  const [open, setOpen] = useState(false)
+  const [showPast, setShowPast] = useState(false)
+  const items = s?.items || []
+  const live = (b: RelatedBooking) => b.status !== 'cancelled' && b.status !== 'declined'
+  const upcoming = items.filter(b => !b.past)
+  const next = upcoming.find(live)
+  const later = upcoming.filter(b => b !== next)
+  const past = items.filter(b => b.past)
+  return (
+    <Shell icon="clock" title="Bookings" s={s} loading={loading} empty={s?.detail ? cap(s.detail) + '.' : `${name} hasn't booked a time with you yet.`}
+      action={<button type="button" className="btn ghost xs rel-add" onClick={() => setOpen(o => !o)} aria-expanded={open} title="A link just for them: it books once, with their name and email filled in"><Icon name="link" size={13} />Send a booking link</button>}
+      extra={open && <BookingLinkForm contact={contact} name={name} types={s?.types || []} appURL={s?.app_url} onClose={() => setOpen(false)} />}>
+      {next ? <a href={next.url} target="_blank" rel="noreferrer" className="rel-item rel-next" title="Open the booking in Pocket Booking">
+        <span className="rel-next-label">Next</span>
+        <span className="rel-item-title">{next.emoji ? `${next.emoji} ` : ''}{next.title || 'Booking'}</span>
+        <span className="rel-item-sub">{fmtBookingWhen(next)}{next.minutes ? ` · ${next.minutes} min` : ''}</span>
+        {next.status === 'pending' && <span className="rel-item-sub rel-wait">{BOOKING_STATUS.pending}</span>}
+      </a> : <p className="rel-msg">Nothing booked ahead.</p>}
+      {later.length > 0 && <ul className="rel-list">
+        {later.map(b => (
+          <li key={b.id}><a href={b.url} target="_blank" rel="noreferrer" className="rel-item" title="Open the booking in Pocket Booking">
+            <span className="rel-item-title">{b.emoji ? `${b.emoji} ` : ''}{b.title || 'Booking'}</span>
+            <span className="rel-item-sub">{[fmtBookingWhen(b), b.status !== 'confirmed' ? BOOKING_STATUS[b.status] || b.status : ''].filter(Boolean).join(' · ')}</span>
+          </a></li>
+        ))}
+      </ul>}
+      {past.length > 0 && <ul className="rel-list past">
+        {(showPast ? past : past.slice(0, 3)).map(b => (
+          <li key={b.id}><a href={b.url} target="_blank" rel="noreferrer" className="rel-item" title="Open the booking in Pocket Booking">
+            <span className="rel-item-sub">{[fmtBookingWhen(b), `${b.emoji ? b.emoji + ' ' : ''}${b.title || 'Booking'}`, b.status !== 'done' && b.status !== 'confirmed' ? BOOKING_STATUS[b.status] || b.status : ''].filter(Boolean).join(' · ')}</span>
+          </a></li>
+        ))}
+      </ul>}
+      {past.length > 3 && <button type="button" className="rel-more" onClick={() => setShowPast(p => !p)}><Icon name={showPast ? 'chevron-up' : 'chevron-down'} size={12} />{showPast ? 'Fewer' : `${past.length - 3} more before`}</button>}
+    </Shell>
+  )
+}
+
+function BookingLinkForm({ contact, name, types, appURL, onClose }: { contact: Contact; name: string; types: { id: string; title: string; emoji?: string; durations?: number[] }[]; appURL?: string; onClose: () => void }) {
+  const { toast } = useToast()
+  const [typeID, setTypeID] = useState(types[0]?.id || '')
+  const [days, setDays] = useState(14)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [made, setMade] = useState<BookingLink | null>(null)
+  const email = contact.emails?.[0] || ''
+  if (!types.length) return (
+    <div className="rel-form">
+      <p className="rel-msg" style={{ margin: 0 }}>You have no open booking page yet. {appURL ? <a href={appURL} target="_blank" rel="noreferrer">Make one in Pocket Booking</a> : 'Make one in Pocket Booking'}, then come back.</p>
+      <div className="row"><button type="button" className="btn ghost sm" onClick={onClose}>Close</button></div>
+    </div>
+  )
+  if (made) {
+    const until = made.expires_at ? new Date(made.expires_at) : null
+    const mail = email ? `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Book a time: ${made.type || 'with me'}`)}&body=${encodeURIComponent(`Hi ${name},\n\nPick a time that suits you here:\n${made.url}\n`)}` : ''
+    return (
+      <div className="rel-form">
+        <p className="rel-msg" style={{ margin: 0 }}>A link for {name}{made.type ? ` to book “${made.type}”` : ''}. It works once{until && !isNaN(until.getTime()) ? `, until ${until.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}; their name{email ? ' and email are' : ' is'} filled in.</p>
+        <CopyField value={made.url} label="Booking link" />
+        <div className="row">
+          {mail && <a className="btn sm" href={mail}><Icon name="mail" size={13} />Email it</a>}
+          <button type="button" className="btn ghost sm" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    )
+  }
+  const make = async () => {
+    setBusy(true)
+    try {
+      const r = await api.post<BookingLink>(`${V1}/contacts/${contact.id}/booking-link`, { type_id: typeID, days, note: note.trim() })
+      setMade(r)
+    } catch (e) { toast(errMsg(e), 'err') } finally { setBusy(false) }
+  }
+  return (
+    <form className="rel-form" onSubmit={e => { e.preventDefault(); make() }}>
+      {types.length > 1 && <Select label="Which booking page" value={typeID} onChange={setTypeID} options={types.map(t => ({ value: t.id, label: `${t.emoji ? t.emoji + ' ' : ''}${t.title || 'Booking page'}`, hint: t.durations?.length ? t.durations.map(m => `${m} min`).join(', ') : undefined }))} />}
+      {types.length === 1 && <p className="rel-msg" style={{ margin: 0 }}>For “{types[0].emoji ? types[0].emoji + ' ' : ''}{types[0].title}”</p>}
+      <input value={note} onChange={e => setNote(e.target.value)} placeholder="A note for you (optional)" aria-label="A note for you (optional)" />
+      <Segmented size="sm" label="Works for" value={days} onChange={setDays} options={[{ value: 7, label: '1 week' }, { value: 14, label: '2 weeks' }, { value: 30, label: '1 month' }]} />
+      {!email && <p className="muted xsmall" style={{ margin: 0 }}>{name} has no email, so they type it in when they book.</p>}
+      <div className="row"><button type="submit" className="btn primary sm" disabled={busy}>{busy && <Spinner size={12} />}Make the link</button><button type="button" className="btn ghost sm" onClick={onClose}>Cancel</button></div>
+    </form>
   )
 }
 

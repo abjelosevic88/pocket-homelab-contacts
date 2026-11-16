@@ -52,6 +52,7 @@ func (s *Server) contactRoutes(r chi.Router) {
 	r.Get("/contacts/{id}/related", s.handleRelated)
 	r.Post("/contacts/{id}/task", s.handleRelatedTask)
 	r.Post("/contacts/{id}/event", s.handleRelatedEvent)
+	r.Post("/contacts/{id}/booking-link", s.handleRelatedBookingLink)
 	r.Get("/contacts/{id}/activity", s.handleContactActivity)
 
 	r.Get("/search", s.handleSearch)

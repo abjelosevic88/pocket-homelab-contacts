@@ -72,6 +72,7 @@ token the person pastes; never a box key):
 | Pocket CRM | `crm:read` | deals with the contact or their company (`/api/v1/lookup?email=<email>&company=<org>`), "Start a deal" (`<crm>/deals/new?name&email&company`) |
 | Pocket Tables | `tables:read` | rows about the contact in the person's tables (`/api/v1/lookup?contact=<card id>&name=<name>&email=<email>`) |
 | Pocket Rentals | `rentals:read` | leases the contact has with the person — place, active/ended, rent, what they owe (`/api/v1/lookup?email=<email>`) |
+| Pocket Booking | `booking:read`, `booking:write` | times the contact booked with the person (`/api/v1/lookup?email=<email>`), "Send a booking link" (`POST /api/v1/invites` with their name and email, for a page from `/api/v1/types`) |
 
 The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
 Other apps use Contacts the other way round: Calendar shows birthdays and suggests guests (`contacts:read`

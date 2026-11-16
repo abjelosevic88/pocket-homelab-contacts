@@ -71,6 +71,9 @@
   contact field, or their name — each opening the row.
 - **Pocket Rentals**: where someone rents from you — each lease's place, active or ended, the rent and what they owe
   now — each opening the lease, plus their tenant page.
+- **Pocket Booking**: the times someone booked with you — the next one first, then the ones before — each opening the
+  booking, and *Send a booking link*: a link just for them (it books once, with their name and email filled in) to copy
+  or email, for whichever of your booking pages you pick.
 - Birthday reminders through Apprise, ntfy or a webhook, and a subscribable birthday calendar.
 
 ## Run it

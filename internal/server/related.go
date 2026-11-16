@@ -20,7 +20,8 @@ import (
 // notes that link to their page in Pocket Notes, open tasks that link to it
 // in Pocket Tasks, answers they sent to the person's forms in Pocket Forms,
 // deals with them or their company in Pocket CRM, the rows about them in
-// Pocket Tables, the places they rent from the person in Pocket Rentals.
+// Pocket Tables, the places they rent from the person in Pocket Rentals, the
+// times they booked with the person in Pocket Booking.
 // Each section stands alone: an app that is off, not linked or down never
 // fails the others. docs/integrations.md lists what each app answers.
 
@@ -34,6 +35,7 @@ type RelatedSection struct {
 	NewURL  string           `json:"new_url,omitempty"`
 	PageURL string           `json:"page_url,omitempty"` // the person's own page in that app (Rentals: their tenant page)
 	Items   []map[string]any `json:"items"`
+	Types   []map[string]any `json:"types,omitempty"` // Booking: the booking pages a personal link can be for
 }
 
 // flexID reads an id another app sends as a number or a string.
@@ -609,6 +611,105 @@ func (s *Server) relatedRentals(ctx context.Context, sb *sibling, sec *RelatedSe
 	return nil
 }
 
+// bookingJSON is a booking as Pocket Booking answers it.
+type bookingJSON struct {
+	ID         flexID `json:"id"`
+	Title      string `json:"title"`
+	Emoji      string `json:"emoji"`
+	Status     string `json:"status"`
+	Start      string `json:"start"`
+	End        string `json:"end"`
+	Minutes    int    `json:"minutes"`
+	Kind       string `json:"location_kind"`
+	Location   string `json:"location"`
+	MeetingURL string `json:"meeting_url"`
+	URL        string `json:"url"`
+}
+
+// relatedBooking: the times the contact booked with the person in Pocket
+// Booking (GET /api/v1/lookup?email=, one ask per email, up to 5), each once:
+// upcoming ones first (soonest first), then past ones (latest first), at most
+// 30. Also the person's booking pages (GET /api/v1/types), open ones only, so
+// "Send a booking link" can ask which one.
+func (s *Server) relatedBooking(ctx context.Context, sb *sibling, sec *RelatedSection, ct vcard.Contact) error {
+	var types struct {
+		Types []struct {
+			ID        flexID `json:"id"`
+			Title     string `json:"title"`
+			Emoji     string `json:"emoji"`
+			Status    string `json:"status"`
+			Durations []int  `json:"durations"`
+			URL       string `json:"url"`
+		} `json:"types"`
+	}
+	if err := sb.call(ctx, http.MethodGet, "/api/v1/types", nil, &types); err != nil {
+		return err
+	}
+	for _, t := range types.Types {
+		if t.ID == "" || (t.Status != "" && t.Status != "open") {
+			continue
+		}
+		sec.Types = append(sec.Types, map[string]any{"id": string(t.ID), "title": t.Title, "emoji": t.Emoji, "durations": t.Durations, "url": t.URL})
+	}
+	var emails []string
+	for _, f := range ct.Emails {
+		if len(emails) == 5 {
+			break
+		}
+		if e := strings.ToLower(strings.TrimSpace(f.Value)); e != "" {
+			emails = append(emails, e)
+		}
+	}
+	if len(emails) == 0 {
+		sec.Detail = "add an email address to see the times they booked with you"
+		return nil
+	}
+	now := time.Now()
+	seen := map[string]bool{}
+	for _, e := range emails {
+		var out struct {
+			Bookings []bookingJSON `json:"bookings"`
+			Upcoming []bookingJSON `json:"upcoming"`
+		}
+		if err := sb.call(ctx, http.MethodGet, "/api/v1/lookup?"+url.Values{"email": {e}}.Encode(), nil, &out); err != nil {
+			return err
+		}
+		for _, b := range append(out.Upcoming, out.Bookings...) {
+			if b.ID == "" || seen[string(b.ID)] {
+				continue
+			}
+			seen[string(b.ID)] = true
+			link := b.URL
+			if sb.public != "" {
+				link = sb.public + "/bookings/" + string(b.ID)
+			}
+			end := whenOf(b.End)
+			if end.IsZero() {
+				end = whenOf(b.Start)
+			}
+			sec.Items = append(sec.Items, map[string]any{"id": string(b.ID), "title": b.Title, "emoji": b.Emoji, "status": b.Status,
+				"start": b.Start, "end": b.End, "minutes": b.Minutes, "location_kind": b.Kind, "location": b.Location,
+				"meeting_url": b.MeetingURL, "url": link, "past": !end.After(now)})
+		}
+	}
+	at := func(m map[string]any) time.Time { v, _ := m["start"].(string); return whenOf(v) }
+	sort.SliceStable(sec.Items, func(i, j int) bool {
+		a, b := sec.Items[i], sec.Items[j]
+		pa, pb := a["past"] == true, b["past"] == true
+		if pa != pb {
+			return !pa
+		}
+		if !pa {
+			return at(a).Before(at(b))
+		}
+		return at(a).After(at(b))
+	})
+	if len(sec.Items) > 30 {
+		sec.Items = sec.Items[:30]
+	}
+	return nil
+}
+
 func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
@@ -651,6 +752,9 @@ func (s *Server) handleRelated(w http.ResponseWriter, r *http.Request) {
 		},
 		"rentals": func(c context.Context, sb *sibling, sec *RelatedSection) error {
 			return s.relatedRentals(c, sb, sec, ct)
+		},
+		"booking": func(c context.Context, sb *sibling, sec *RelatedSection) error {
+			return s.relatedBooking(c, sb, sec, ct)
 		},
 	} {
 		wg.Add(1)
@@ -776,6 +880,64 @@ func (s *Server) handleRelatedEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"item": s.calendarItem(sb, o, time.Now())})
+}
+
+// handleRelatedBookingLink makes a personal booking link for the contact in
+// Pocket Booking: it books once, with their name and first email filled in.
+func (s *Server) handleRelatedBookingLink(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	e, _, _, err := s.loadContact(ctx, me(r), idParam(r, "id"))
+	if err != nil {
+		s.fail(w, err, "contact")
+		return
+	}
+	var in struct {
+		TypeID flexID `json:"type_id"`
+		Days   int    `json:"days"`
+		Note   string `json:"note"`
+	}
+	if err := decode(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	typeID, _ := strconv.ParseInt(string(in.TypeID), 10, 64)
+	if in.Days <= 0 {
+		in.Days = 14
+	}
+	if in.Days > 90 {
+		in.Days = 90
+	}
+	email := ""
+	if card, err := vcard.ParseOne([]byte(e.VCF)); err == nil {
+		for _, f := range card.Contact().Emails {
+			if v := strings.TrimSpace(f.Value); v != "" {
+				email = v
+				break
+			}
+		}
+	}
+	sb := s.siblingOrFail(w, r, "booking")
+	if sb == nil {
+		return
+	}
+	body := map[string]any{"type_id": typeID, "name": e.FN, "email": email, "note": strings.TrimSpace(in.Note), "days": in.Days}
+	c, cancel := context.WithTimeout(ctx, relatedTimeout)
+	defer cancel()
+	var out struct {
+		ID        flexID `json:"id"`
+		URL       string `json:"url"`
+		Type      string `json:"type"`
+		ExpiresAt string `json:"expires_at"`
+	}
+	if err := sb.call(c, http.MethodPost, "/api/v1/invites", body, &out); err != nil {
+		writeErr(w, http.StatusBadGateway, siblingErr("Pocket Booking", err))
+		return
+	}
+	if out.URL == "" {
+		writeErr(w, http.StatusBadGateway, "Pocket Booking did not give a link back")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": string(out.ID), "url": out.URL, "type": out.Type, "expires_at": out.ExpiresAt, "email": email})
 }
 
 // localTime reads a wall-clock time without a zone ("2026-10-22T10:00[:00]").

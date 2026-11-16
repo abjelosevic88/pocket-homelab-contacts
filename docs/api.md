@@ -88,6 +88,7 @@ answers 403 "this address book is read-only (it mirrors an account)"; label rena
 | `GET /contacts/{id}/related` | the contact in the other Pocket apps, see below |
 | `POST /contacts/{id}/task` `{title, due?: "YYYY-MM-DD"}` | creates a task in Pocket Tasks linking to the contact → `{"item": RelatedItem}` |
 | `POST /contacts/{id}/event` `{title, start: "2026-10-22T10:00", duration_min: 60, location?}` | creates an event in Pocket Calendar with the contact's first email invited → `{"item": RelatedItem}` |
+| `POST /contacts/{id}/booking-link` `{type_id?, days?: 14, note?}` | a personal booking link in Pocket Booking for the contact (their name and first email filled in; it books once) → `{"id", "url", "type", "expires_at", "email"}`; `type_id` empty = the person's first open booking page, `days` 1–90 |
 | `GET /contacts/{id}/activity` | that contact's change log `[Activity]` |
 
 **Related**
@@ -105,13 +106,16 @@ answers 403 "this address book is read-only (it mirrors an account)"; label rena
  "tables":   {"status": "ok", "detail": "", "app_url": "https://tables…",
               "items": [{"id": "12", "title": "Marko Petrović", "table": "Clients", "base": "Bakery", "field": "Email", "url": "https://tables…/r/12"}]},
  "rentals":  {"status": "ok", "detail": "", "app_url": "https://rentals…", "page_url": "https://rentals…/tenants/3",
-              "items": [{"id": "2", "place": "Flat 3 · Elm St 4", "status": "active|draft|ended", "start_date": "2025-01-01", "end_date": "", "rent": 650, "currency": "EUR", "balance": 120.5, "url": "https://rentals…/leases/2"}]}}
+              "items": [{"id": "2", "place": "Flat 3 · Elm St 4", "status": "active|draft|ended", "start_date": "2025-01-01", "end_date": "", "rent": 650, "currency": "EUR", "balance": 120.5, "url": "https://rentals…/leases/2"}]},
+ "booking":  {"status": "ok", "detail": "", "app_url": "https://booking…",
+              "types": [{"id": "3", "title": "Intro call", "emoji": "📞", "durations": [30], "url": "https://booking…/b/intro-call-k2f9"}],
+              "items": [{"id": "41", "title": "Intro call", "emoji": "📞", "status": "pending|confirmed|declined|cancelled|done|no_show", "start": "2026-11-18T10:00:00+01:00", "end": "…", "minutes": 30, "location_kind": "video", "location": "", "meeting_url": "https://meet.jit.si/…", "url": "https://booking…/bookings/41", "past": false}]}}
 ```
 Every section stands alone: one app being off or down never fails the others (`status: "error"`, `detail` says why
 in plain words, e.g. "you switched the Contacts → Pocket Notes link off in Pocket Core"). `status: "off"` when the person
 switched the app off in Settings → Integrations, or it is set to go through Pocket Core and the box has none. Calendar
 items: the next 10 upcoming (soonest first), then the last 10 past ones; Forms items: newest first, at most 20; CRM items: open deals
-first (soonest next step first), then won and lost ones, newest first, at most 30; Tables items: in the order Pocket Tables gives them, each row once, at most 30; Rentals items: active leases, then drafts, then ended ones (latest first), at most 30, `rent` and `balance` in currency units (`balance` > 0 is owed now, < 0 paid ahead), `page_url` the person's tenant page. What each app is asked: docs/integrations.md.
+first (soonest next step first), then won and lost ones, newest first, at most 30; Tables items: in the order Pocket Tables gives them, each row once, at most 30; Rentals items: active leases, then drafts, then ended ones (latest first), at most 30, `rent` and `balance` in currency units (`balance` > 0 is owed now, < 0 paid ahead), `page_url` the person's tenant page; Booking items: upcoming ones (soonest first), then past ones (latest first), each once, at most 30, `url` your page of the booking, `types` your open booking pages (for `POST /contacts/{id}/booking-link`). What each app is asked: docs/integrations.md.
 `POST /contacts/{id}/task` and `/event` answer 201; 502 with `{"error"}` when the app can't be reached. `title` may be
 empty (→ "Call <name>" / "Meeting with <name>"); `start` is a local `YYYY-MM-DDTHH:MM` (in the person's Pocket Calendar
 zone) or RFC 3339; `duration_min` defaults to 60.
