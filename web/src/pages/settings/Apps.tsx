@@ -8,7 +8,7 @@ import { StatusDot } from './common'
 
 const META: Record<string, { icon: string; color: string; what: string }> = {
   calendar: { icon: 'calendar', color: '#ea580c', what: 'Meetings with the person (they’re a guest by email), and “New event” with them invited.' },
-  notes: { icon: 'note', color: '#ca8a04', what: 'Notes that link to the person, and “New note” about them.' },
+  notes: { icon: 'note', color: '#2563eb', what: 'Notes that link to the person, and “New note” about them.' },
   tasks: { icon: 'check-square', color: '#16a34a', what: 'Open to-dos about the person, and “Remind me”.' },
 }
 
