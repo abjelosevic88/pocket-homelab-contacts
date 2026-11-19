@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/abjelosevic88/pocket-homelab-contacts/internal/store"
 	"github.com/abjelosevic88/pocket-homelab-contacts/internal/vcard"
 )
@@ -229,7 +231,8 @@ func readCards(files []importFile) ([]importCard, []string) {
 			for i, c := range cards {
 				c.Upgrade()
 				if strings.TrimSpace(c.UID()) == "" {
-					c.Set("UID", newUID())
+					// the same card gets the same UID, so a second run finds it
+					c.Set("UID", strings.ToUpper(uuid.NewSHA1(uuid.NameSpaceOID, []byte(c.String())).String()))
 				}
 				out = append(out, importCard{card: c, where: at(fmt.Sprintf("card %d", i+1))})
 			}

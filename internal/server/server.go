@@ -358,6 +358,7 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		Offers:    linkOffers,
 		Uses:      appUses(),
 		Services:  serviceUses,
+		Portable:  portable,
 	}
 	if s.cfg.BaseURL != "" {
 		m.OIDC = &core.OIDCRequest{RedirectURIs: []string{s.cfg.BaseURL + "/api/v1/auth/oidc/callback"}}

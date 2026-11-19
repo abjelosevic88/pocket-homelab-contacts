@@ -25,6 +25,19 @@ var serviceUses = []core.ServiceUse{
 	{Type: "nextcloud", Reason: "Bring your Nextcloud contacts here and keep them in sync both ways"},
 }
 
+// portable is what Pocket Move may copy out and bring in for a person
+// (docs/move.md in pocket-homelab-core): the routes run as the person the link
+// acts for, on their own address books only. Contacts keeps every contact as
+// a vCard, so the .vcf is also its own file: /api/v1/import takes it back.
+var portable = &core.Portable{
+	Exports: []core.PortableExport{
+		{Path: "/api/v1/export.vcf", File: "contacts.vcf", Kind: core.KindVCard, Title: "Every contact in your own address books as vCard, with photos and groups"},
+	},
+	Imports: []core.PortableImport{
+		{Path: "/api/v1/import", Kind: core.KindVCard, ContentType: "text/vcard", MaxBytes: importMaxBody, Title: "Adds the contacts to your default address book; one already here (same UID, email, phone or full name) only gains what it was missing"},
+	},
+}
+
 type linkRoute struct {
 	methods string
 	path    *regexp.Regexp
@@ -42,6 +55,9 @@ var linkRoutes = []linkRoute{
 var errLinkScope = errors.New("outside the link's scope")
 
 func linkAllows(scopes []string, r *http.Request) bool {
+	if portable.LinkAllows(scopes, r) {
+		return true
+	}
 	for _, lr := range linkRoutes {
 		if !strings.Contains(" "+lr.methods+" ", " "+r.Method+" ") || !lr.path.MatchString(r.URL.Path) {
 			continue
@@ -64,13 +80,13 @@ func (s *Server) linkUser(ctx context.Context, tok string, r *http.Request) (*st
 	if err != nil {
 		return nil, err
 	}
-	if !in.Active || !in.Delegated() || in.User == nil || in.User.Email == "" {
+	if !in.Active || !in.Delegated() || in.Audience != "contacts" || in.User == nil || in.User.Email == "" || in.App == nil || in.App.Slug == "" {
 		return nil, http.ErrNoCookie
 	}
 	if !linkAllows(strings.Fields(in.Scope), r) {
 		return nil, errLinkScope
 	}
-	s.linkApps.Store(tok, in.App)
+	s.linkApps.Store(tok, in.App.Slug)
 	return s.coreIdentityUser(ctx, in)
 }
 
@@ -85,7 +101,9 @@ func (s *Server) linkApp(r *http.Request) string {
 		return ""
 	}
 	if v, ok := s.linkApps.Load(tok); ok {
-		return v.(string)
+		if slug, ok := v.(string); ok && slug != "" {
+			return slug
+		}
 	}
 	return "link"
 }

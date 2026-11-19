@@ -72,6 +72,7 @@ func (s *Server) contactRoutes(r chi.Router) {
 
 	r.Post("/import", s.handleImport)
 	r.Get("/export.vcf", s.handleExport)
+	r.Get(strings.TrimPrefix(core.PortablePath, "/api/v1"), portable.Handler())
 
 	r.Get("/deleted", s.handleListDeleted)
 	r.Post("/deleted/{id}/restore", s.handleRestoreDeleted)
@@ -911,6 +912,19 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.fail(w, err, "address book")
 		return
+	}
+	if s.linkApp(r) != "" && queryInt64(r, "book") == 0 {
+		// an app copying a person's data out (Pocket Move) takes their own
+		// address books, not the ones others share with them
+		own, err := s.store.OwnAddressBooks(ctx, u.ID)
+		if err != nil {
+			s.fail(w, err, "export")
+			return
+		}
+		books = []int64{}
+		for _, b := range own {
+			books = append(books, b.ID)
+		}
 	}
 	var rows []*store.ContactRow
 	if ids := r.URL.Query().Get("ids"); ids != "" {

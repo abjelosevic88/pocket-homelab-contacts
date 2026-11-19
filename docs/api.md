@@ -150,17 +150,21 @@ zone) or RFC 3339; `duration_min` defaults to 60.
 ## Import and export
 
 `POST /import` — multipart (`file`, may repeat; `.vcf`, `.csv` from Google/Outlook/Apple/any header row, or a
-`.zip` of them) or JSON `{"text": "BEGIN:VCARD…"}`; fields `addressbook_id`, `duplicates` = `merge` (default: update
+`.zip` of them), JSON `{"text": "BEGIN:VCARD…"}` or the file as the raw body (`text/vcard`, `text/csv`); fields `addressbook_id`, `duplicates` = `merge` (default: update
 the matching contact, union of fields) | `skip` | `add`, `dry_run` = `1` for a preview.
 → `{"total": 456, "created": 450, "merged": 4, "skipped": 2, "failed": 0, "errors": ["line 31: …"],
 "preview": [{"fn", "emails", "phones", "action": "create|merge|skip", "match_id": 12|null}] (dry run, first 200)}`.
-vCard 2.1 (quoted-printable, Windows-1250) is upgraded to 3.0; photos are kept. Cards without a UID get one. CSV:
+vCard 2.1 (quoted-printable, Windows-1250) is upgraded to 3.0; photos are kept. Cards without a UID get one made from the card (the same card, the same UID). CSV:
 Google (current and old export, " ::: " multi-values), Outlook, or any header row (English, Serbian/Bosnian/Croatian,
 German column names: Ime, Prezime, Mobitel, Telefon, Email, Adresa, Grad, Rođendan …); UTF-8 with or without BOM,
 UTF-16, Windows-1250; `,` `;` or tab. A merge that adds nothing counts as `skipped`, so importing the same file twice
 is a no-op. Imported contacts get `source: "import"`; an import publishes no Core event per contact.
 
-`GET /export.vcf?book=&ids=1,2,3` → `text/vcard` of the person's visible contacts (or the given ones).
+`GET /export.vcf?book=&ids=1,2,3` → `text/vcard` of the person's visible contacts (or the given ones); through a link
+(Pocket Move) only the person's own address books.
+
+`GET /pocket/portable` says what Pocket Move may copy out and bring in: `move:export` reaches it and `GET /export.vcf`
+(`vcard`), `move:import` reaches it and `POST /import` (`vcard`, raw `text/vcard`; also the way back for the export).
 
 ## Recently deleted, activity, changes
 
