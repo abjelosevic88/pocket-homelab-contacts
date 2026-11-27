@@ -139,6 +139,23 @@ zone) or RFC 3339; `duration_min` defaults to 60.
 (yearly all-day events; 29 February repeats on the last day of February). `GET /feeds` → `{"birthdays_url": "https://…/feed/birthdays/<tok>.ics", "birthdays_webcal": "webcal://…"}`;
 `POST /feeds/rotate` makes a new secret (same answer as `GET /feeds`).
 
+## Pocket Search, Pocket Day and Pocket Hub
+
+Contacts answers three of the four routes every Pocket app can offer (`docs/capabilities.md` in Pocket Core), so
+Pocket Search, Pocket Day and Pocket Hub find it on their own. Each has its own link scope that opens that one route
+and nothing else (`contacts:read` does not open them); a signed-in person or a personal token can call them too.
+They read what `/search` and `/birthdays` read: the person's own address books and the shared ones they have not
+hidden. Addresses (`url`) are paths in the app.
+
+| Route | Scope | What |
+|---|---|---|
+| `GET /pocket/search?q&limit` | `pocket:search` | `{items}`: the contacts `GET /search` finds, in its order. Each has `id`, `title` (the name), `kind` (`contact`), `url` (`/contacts/<id>`) and `snippet`: where they work and one way to reach them ("Acme · Designer · ana@example.com": the email or phone the words found, else the first email, else the first phone), plus where the words were found when that line does not show it ("Nickname: Seka", "Label: Family", "Address: …", "Note: …") |
+| `GET /pocket/day/{date}` | `pocket:day` | `{date, summary, items}`: the birthdays and anniversaries that fall on that day, worked out as in `GET /birthdays` (29 February falls on the 28th in other years). `summary` is "2 birthdays" or "1 birthday, 1 anniversary", empty with none. An item has `id` (`birthday:<id>`, `anniversary:<id>`), `title` ("Ana Petrović's birthday"), `sub` when the year is known ("turns 40", "10 years together"), `kind` (`birthday`, `anniversary`) and `url`. A day before the year on the card is left out |
+| `GET /pocket/widget` | `pocket:widget` | `{line, items, url}`: the birthdays and anniversaries of the next 30 days, the soonest first, at most eight. `line` is "Ana's birthday is today", "Birthdays today: Ana and Marko" or "Next: Marko in 5 days"; an item has the name as `title` and `detail` "today · turns 40", "tomorrow", "in 3 days · anniversary"; `url` is `/birthdays`. Nothing in the next 30 days answers `{"items": []}` |
+
+A quick line (`POST /pocket/capture`, `pocket:capture`) is not offered: a contact is made in the editor, and a name
+alone makes a poor one.
+
 ## Duplicates
 
 | | |

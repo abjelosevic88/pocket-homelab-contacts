@@ -63,6 +63,10 @@ func (s *Server) contactRoutes(r chi.Router) {
 	r.Post("/categories/delete", s.handleDeleteCategory)
 
 	r.Get("/birthdays", s.handleBirthdays)
+	// What Pocket Search, Pocket Day and Pocket Hub ask: capabilities.go.
+	r.Get("/pocket/search", core.SearchHandler(s.pocketSearch))
+	r.Get("/pocket/day/{date}", core.DayHandler(s.pocketDay))
+	r.Get("/pocket/widget", core.WidgetHandler(s.pocketWidget))
 	r.Get("/feeds", s.handleFeeds)
 	r.Post("/feeds/rotate", s.handleRotateFeed)
 

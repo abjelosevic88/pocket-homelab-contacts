@@ -77,6 +77,9 @@ token the person pastes; never a box key):
 The contact's page address is `BASE_URL/contacts/<id>`; that is what notes and tasks link to.
 Other apps use Contacts the other way round: Calendar shows birthdays and suggests guests (`contacts:read`
 → `/api/v1/birthdays`, `/api/v1/suggest`), Notes' "Link to something" finds people (`/api/v1/search`).
+Pocket Search, Pocket Day and Pocket Hub need no list of apps: Contacts says in its manifest that it can be searched,
+can tell a day's birthdays and has a "Birthdays" widget (`capabilities` in internal/server/links.go), and answers on
+`/api/v1/pocket/search`, `/pocket/day/{date}` and `/pocket/widget` (internal/server/capabilities.go).
 
 Publishes `contacts.created|updated|deleted` (payload `{id, uid, fn, addressbook_id, source}`, `user_email` of
 the book owner) and `contacts.birthday` on the morning of a birthday.

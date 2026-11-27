@@ -99,6 +99,9 @@ either off in Pocket Core greys the whole section.
 Contacts offers `contacts:read` (`GET /contacts`, `/contacts/{id}`, `/vcf`, `/photo`, `/addressbooks`, `/birthdays`,
 `/search`, `/suggest`, `/lookup`, `/categories`, `/changes`) and `contacts:write` (`POST /contacts`, `PUT`/`PATCH`/
 `DELETE /contacts/{id}` — only for contacts whose `source` is the acting app's slug, else 403).
+It also offers `pocket:search`, `pocket:day` and `pocket:widget`, one route each (`GET /pocket/search`,
+`/pocket/day/{date}`, `/pocket/widget`), which Pocket Search, Pocket Day and Pocket Hub find on their own:
+[api.md](api.md#pocket-search-pocket-day-and-pocket-hub).
 Core events: `contacts.created|updated|deleted` `{id, uid, fn, addressbook_id, source, user_email}` (book owner;
 imports publish none per contact) and `contacts.birthday` `{id, fn, kind: birthday|anniversary, age, user_email}` once
 per contact, person and day, from the person's `birthday_time` on.

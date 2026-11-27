@@ -350,7 +350,7 @@ func (s *Server) coreLoop(ctx context.Context) {
 
 func (s *Server) registerWithCore(ctx context.Context) error {
 	m := core.Manifest{
-		Slug: "contacts", Name: "Pocket Contacts",
+		Slug: "contacts", Name: "Pocket Contacts", Category: "Everyday",
 		Description: "Everyone you know in one searchable place: address books shared with the people on the box, a CardDAV server for iPhone, Mac and Android, import from vCard, CSV, iCloud, Google and Nextcloud (and two-way sync), duplicates merged, birthdays reminded, and each person's meetings, notes and to-dos from the other Pocket apps on their page.",
 		Icon:        "/favicon.svg", Version: Version,
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "CONTACTS",
@@ -359,6 +359,8 @@ func (s *Server) registerWithCore(ctx context.Context) error {
 		Uses:      appUses(),
 		Services:  serviceUses,
 		Portable:  portable,
+
+		Capabilities: capabilities,
 	}
 	if s.cfg.BaseURL != "" {
 		m.OIDC = &core.OIDCRequest{RedirectURIs: []string{s.cfg.BaseURL + "/api/v1/auth/oidc/callback"}}

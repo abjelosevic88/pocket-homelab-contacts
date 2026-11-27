@@ -38,6 +38,19 @@ var portable = &core.Portable{
 	},
 }
 
+// capabilities is what Pocket Search, Pocket Day and Pocket Hub may ask
+// Contacts (docs/capabilities.md in pocket-homelab-core): one fixed route
+// each, answered in capabilities.go as the person the caller acts for. A
+// quick line is not offered: a contact is made in the editor, and a name
+// alone makes a poor one.
+var capabilities = core.Capabilities{
+	Search: &core.Searchable{What: "The people and companies in your address books and the ones shared with you, by name, nickname, company, email, phone or note",
+		Kinds: []string{"contact"}, Bangs: []string{"contacts", "people"}},
+	Day: &core.DayFeed{Label: "Contacts", One: "birthday", Many: "birthdays", Unit: "count",
+		What: "The birthdays and anniversaries of your contacts that fall on that day"},
+	Widget: &core.Widget{Title: "Birthdays", What: "The birthdays and anniversaries of the next 30 days, the soonest first"},
+}
+
 type linkRoute struct {
 	methods string
 	path    *regexp.Regexp
@@ -55,7 +68,7 @@ var linkRoutes = []linkRoute{
 var errLinkScope = errors.New("outside the link's scope")
 
 func linkAllows(scopes []string, r *http.Request) bool {
-	if portable.LinkAllows(scopes, r) {
+	if portable.LinkAllows(scopes, r) || capabilities.LinkAllows(scopes, r) {
 		return true
 	}
 	for _, lr := range linkRoutes {

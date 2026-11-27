@@ -74,6 +74,11 @@
 - **Pocket Booking**: the times someone booked with you — the next one first, then the ones before — each opening the
   booking, and *Send a booking link*: a link just for them (it books once, with their name and email filled in) to copy
   or email, for whichever of your booking pages you pick.
+- **Pocket Search and Pocket Hub** find Contacts on their own, with nothing to set up in either: your people turn up
+  in Search (`!contacts ana`, `!people ana`) with where they work and a way to reach them, and Hub shows a "Birthdays"
+  widget with the next 30 days. Whose birthday or anniversary falls on a day is offered the same way (Pocket Day keeps
+  its own reading through `contacts:read` for now). The routes are in
+  [docs/api.md](docs/api.md#pocket-search-pocket-day-and-pocket-hub).
 - Birthday reminders through Apprise, ntfy or a webhook, and a subscribable birthday calendar.
 
 ## Run it
